@@ -75,7 +75,7 @@ void ledISR(void) {
     int interruptSource = *(int *)INTC_BASE_ADDR;
 
     // Handle timer interrupt
-    if (interruptSource & TIMER_INT_SRC) {
+    if ( interruptSource & TIMER_INT_SRC ) {
         // Toggle LEDs
         *(int *)LED_BASE_ADDR = ~(*(int *)LED_BASE_ADDR);
 
