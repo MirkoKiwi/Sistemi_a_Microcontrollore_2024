@@ -18,7 +18,7 @@
 // GPIO Peripheral Registers
 #define GIER 0x011C				// Global Interrupt Enable Register
 #define ISCR 0x0120				// Interrupt Status Clear Register
-#define Peripheral_IER 0x0128	// Interrupt Enable Register
+#define Peripheral_IER 0x0128	                // Interrupt Enable Register
 
 
 int peek (int *location);
