@@ -14,10 +14,10 @@ int main() {
     
 	while(1) {
         	// Riceve dati dalla periferica UARTLite
-		char ch = XUartLite_RecvByte(axi_uartlite_0);
+		char ch = XUartLite_RecvByte(AXI_UARTLITE_0_BASEADDR);
 		
         	// Rispedisce indietro gli stessi dati ( creando una loopback )
-        	XUartLite_SendByte(axi_uartlite_0, ch);
+        	XUartLite_SendByte(AXI_UARTLITE_0_BASEADDR, ch);
 	}
 
     	cleanup_platform();
