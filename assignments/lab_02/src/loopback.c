@@ -20,6 +20,6 @@ int main(){
         XUartLite_SendByte(axi_uartlite_0, ch);
 	}
 
-    cleanup_platform();
-    return 0;
+    	cleanup_platform();
+   	return 0;
 }
