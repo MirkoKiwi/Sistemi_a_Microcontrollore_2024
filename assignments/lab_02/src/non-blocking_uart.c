@@ -87,7 +87,8 @@ void update_leds(u32 data, u8 mode) {
             if ( receivedChar != 4 ) { // c = 4 implica che la UART sia vuota
                 // Process Data
                 if ( receivedChar == 'a' )
-                    newLedOutput = 0xFF00; // Accendo i led
+                    // Accendo i primi 8 led
+                    newLedOutput = 0xFF00; 
                 else {
                     int number = charNumToInt(receivedChar);
 
@@ -111,7 +112,8 @@ void update_leds(u32 data, u8 mode) {
             break;
 
         case BUTTONS:
-            ledMask &= 0xFF0F;  // Primi 12 led e ultimi 4 led invariati
+            // Primi 12 led e ultimi 4 led invariati
+            ledMask &= 0xFF0F; 
             newLedOutput = ( (data & 0xF) << 4 ); // Accendo solo i rimanenti 4 led in mezzo
             break;
 
