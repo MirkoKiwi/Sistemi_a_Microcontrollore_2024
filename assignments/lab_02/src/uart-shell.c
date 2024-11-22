@@ -28,10 +28,10 @@ int main(){
 	            *(int *)AXI_GPIO_LEDS_BASEADDR = 0xFFFF; 
 	        }
 		else {
-	             // Il carattere viene convertito in numero ed i led vengono accesi secondo il suo valore
-		     int num = charNumToInt(ch);
-		     if ( num != -1 )    
-	             *(int*)AXI_GPIO_LEDS_BASEADDR = num;
+	            // Il carattere viene convertito in numero ed i led vengono accesi secondo il suo valore
+		    int num = charNumToInt(ch);
+		    if ( num != -1 )    
+	            *(int*)AXI_GPIO_LEDS_BASEADDR = num;
 		}
 	}
 
