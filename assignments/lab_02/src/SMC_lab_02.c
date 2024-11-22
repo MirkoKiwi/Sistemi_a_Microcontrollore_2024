@@ -170,9 +170,10 @@ void update_leds(u32 data, u8 mode) {
 	    case UART:
 		if ( receivedChar != 4 ) { // c = 4 implica che la UART sia vuota
 		    // Process Data
-		    if ( receivedChar == 'a' )
+		    if ( receivedChar == 'a' ) {
 			// Accendo i primi 8 led
 			newLedOutput = 0xFF00; 
+		    }
 		    else {
 			int number = charNumToInt(receivedChar);
 	
