@@ -91,7 +91,7 @@ void update_leds(u32 data, u8 mode) {
                 else {
                     int number = charNumToInt(receivedChar);
 
-                    if( number != -1 ) { 
+                    if ( number != -1 ) { 
                         // Controllo i primi 8 led se il numero è valido
                         newLedOutput = ( number << 8 ); 
                     }
