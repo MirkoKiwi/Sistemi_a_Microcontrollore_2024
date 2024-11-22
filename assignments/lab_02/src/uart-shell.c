@@ -23,16 +23,15 @@ int main(){
 	while(1){
 		char ch = XUartLite_RecvByte(AXI_UARTLITE_0_BASEADDR);
 
-        // Se il carattere in ricezione è 'a', accende tutti i led
+	        // Se il carattere in ricezione è 'a', accende tutti i led
 		if ( ch == 'a' ) {
-            *(int *)AXI_GPIO_LEDS_BASEADDR = 0xFFFF; 
-        }
+	            *(int *)AXI_GPIO_LEDS_BASEADDR = 0xFFFF; 
+	        }
 		else {
-            // Il carattere viene convertito in numero ed i led vengono accesi secondo il suo valore
-			int num = charNumToInt(ch);
-			if ( num != -1 )    
-                *(int*)AXI_GPIO_LEDS_BASEADDR = num;
-
+	             // Il carattere viene convertito in numero ed i led vengono accesi secondo il suo valore
+		     int num = charNumToInt(ch);
+		     if ( num != -1 )    
+	             *(int*)AXI_GPIO_LEDS_BASEADDR = num;
 		}
 	}
 
