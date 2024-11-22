@@ -9,7 +9,7 @@
 #define AXI_UARTLITE_0_BASEADDR 0x40600000
 
 
-int main(){
+int main() {
 	init_platform();
     
 	while(1) {
@@ -52,7 +52,7 @@ int main(){
 	init_platform();
     
 
-	while(1){
+	while(1) {
 		char ch = XUartLite_RecvByte(AXI_UARTLITE_0_BASEADDR);
 
         	// Se il carattere in ricezione è 'a', accende tutti i led
