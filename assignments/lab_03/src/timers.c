@@ -4,6 +4,8 @@
 #include "xil_printf.h"
 #include "xparameters.h"
 
+// RIVEDERE
+
 // Definitions
 #define TmrCtrNumber   0               // Use timer 0
 #define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
