@@ -89,7 +89,7 @@ void ledISR(void) {
     }
 
     // Handle switch interrupt
-    if (interrupt_source & SWITCH_INT_SRC) {
+    if (interruptSource & SWITCH_INT_SRC) {
         // Read switches state
         int switchInput = ~(*(int *)SWITCH_BASE_ADDR);
         int newCounterValue = 100000000;
