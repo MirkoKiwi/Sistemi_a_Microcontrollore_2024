@@ -4,7 +4,6 @@
 #include "xil_printf.h"
 #include "xparameters.h"
 
-// RIVEDERE
 
 // Definitions
 #define TmrCtrNumber   0               // Use timer 0
@@ -98,7 +97,7 @@ void ledISR(void) {
         if (switchInput & 0xFF) {
             // Increase period (based on rightmost 8 switches)
             newCounterValue = 100000000 * (switchInput & 0xFF);
-        } 
+        }
         else if (switchInput & 0xFF00) {
             // Decrease period (based on leftmost 8 switches)
             int inputSwitch = (switchInput & 0xFF00) >> 8; // Extract leftmost 8 bits
