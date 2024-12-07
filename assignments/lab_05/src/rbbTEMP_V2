@@ -111,33 +111,37 @@ void timer0IntAck(void) {
 
 // Function to update colors in a spinning pattern
 void updateColors(void) {
-    // Left LED rotation
-    if (leftRLevel == 255 && leftGLevel < 255 && leftBLevel == 0) {
-        leftGLevel += colorStep;
-    } else if (leftGLevel == 255 && leftRLevel > 0 && leftBLevel == 0) {
-        leftRLevel -= colorStep;
-    } else if (leftGLevel == 255 && leftBLevel < 255) {
-        leftBLevel += colorStep;
-    } else if (leftBLevel == 255 && leftGLevel > 0) {
-        leftGLevel -= colorStep;
-    } else if (leftBLevel == 255 && leftRLevel < 255) {
-        leftRLevel += colorStep;
-    } else if (leftRLevel == 255 && leftBLevel > 0) {
-        leftBLevel -= colorStep;
+    // Update hues
+    leftHue = fmod(leftHue + hueStep, 360.0f);
+    rightHue = fmod(rightHue + hueStep, 360.0f);
+
+    // Convert HSV to RGB
+    hsvToRgb(leftHue, 1.0f, 1.0f, &leftRLevel, &leftGLevel, &leftBLevel);
+    hsvToRgb(rightHue, 1.0f, 1.0f, &rightRLevel, &rightGLevel, &rightBLevel);
+}
+
+// Function to convert HSV to RGB
+void hsvToRgb(float hue, float saturation, float value, int* r, int* g, int* b) {
+    float c = value * saturation;
+    float x = c * (1 - fabs(fmod(hue / 60.0f, 2) - 1));
+    float m = value - c;
+
+    float rPrime, gPrime, bPrime;
+    if (hue >= 0 && hue < 60) {
+        rPrime = c; gPrime = x; bPrime = 0;
+    } else if (hue >= 60 && hue < 120) {
+        rPrime = x; gPrime = c; bPrime = 0;
+    } else if (hue >= 120 && hue < 180) {
+        rPrime = 0; gPrime = c; bPrime = x;
+    } else if (hue >= 180 && hue < 240) {
+        rPrime = 0; gPrime = x; bPrime = c;
+    } else if (hue >= 240 && hue < 300) {
+        rPrime = x; gPrime = 0; bPrime = c;
+    } else {
+        rPrime = c; gPrime = 0; bPrime = x;
     }
 
-    // Right LED rotation
-    if (rightRLevel == 255 && rightGLevel < 255 && rightBLevel == 0) {
-        rightGLevel += colorStep;
-    } else if (rightGLevel == 255 && rightRLevel > 0 && rightBLevel == 0) {
-        rightRLevel -= colorStep;
-    } else if (rightGLevel == 255 && rightBLevel < 255) {
-        rightBLevel += colorStep;
-    } else if (rightBLevel == 255 && rightGLevel > 0) {
-        rightGLevel -= colorStep;
-    } else if (rightBLevel == 255 && rightRLevel < 255) {
-        rightRLevel += colorStep;
-    } else if (rightRLevel == 255 && rightBLevel > 0) {
-        rightBLevel -= colorStep;
-    }
+    *r = (int)((rPrime + m) * 255);
+    *g = (int)((gPrime + m) * 255);
+    *b = (int)((bPrime + m) * 255);
 }
