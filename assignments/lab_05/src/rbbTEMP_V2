@@ -23,16 +23,18 @@ volatile int* AXI_RGBLEDS = (int*)0x40030000;
 // Global Counter and Variables
 int dutyCycleCounter = 0;
 
+float leftHue = 0.0f, rightHue = 120.0f; // Hue for left and right LEDs (in degrees)
 int leftRLevel = 0, leftGLevel = 0, leftBLevel = 0;
 int rightRLevel = 0, rightGLevel = 0, rightBLevel = 0;
 
-int colorStep = 1; // Step for incrementing or decrementing color intensity
+const float hueStep = 1.0f; // Step for hue increment (controls speed of color cycle)
 
 // Function Declarations
 void timerInit(int counterValue);
 void timer0IntAck(void);
 void timerISR(void) __attribute__((interrupt_handler));
 void updateColors(void);
+void hsvToRgb(float hue, float saturation, float value, int* r, int* g, int* b);
 
 int main() {
     init_platform();
@@ -40,13 +42,6 @@ int main() {
     timerInit(3000);
 
     microblaze_enable_interrupts(); // Enable interrupts in the processor
-
-    leftRLevel = 255;
-    leftGLevel = 0;
-    leftBLevel = 0;
-    rightRLevel = 0;
-    rightGLevel = 255;
-    rightBLevel = 0;
 
     while (1) {
         // Main loop
