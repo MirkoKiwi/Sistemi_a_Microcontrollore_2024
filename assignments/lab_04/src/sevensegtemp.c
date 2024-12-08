@@ -76,7 +76,7 @@ u8 sevseg_digitMapping(char c) {
     };
     if (c >= '0' && c <= '9') return ~digitMap[c - '0'];
     if (c >= 'A' && c <= 'F') return ~digitMap[c - 'A' + 10];
-    return 0x7E; // Default (all segments off)
+    return 0xFF; // Default (all segments off)
 }
 
 void write_digit(u8 digit, u8 dotted) {
@@ -134,3 +134,4 @@ void intToString(int val, char *dst) {
 u8 calculateLeftmostAnode(int lastAnIdx) {
     return ~(1 << lastAnIdx);
 }
+
