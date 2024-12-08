@@ -165,4 +165,46 @@ void timer0_IntAck(void) {
 }
 
 void displaySingleVal(void) {
-    int i = *CURRENT_AN_ON; // In base all'anodo acceso, scrivo il
+    int i = *CURRENT_AN_ON; // In base all'anodo acceso, scrivo il valore
+    write_digit(sevseg_digitMapping(*(stringSevSeg+(*LAST_ANODE_INDX)-i)), 0); // Legge l'array partendo dalla fine (l'an[0] � quello pi� a destra)
+	i++;
+}
+
+void IntToString (int val, char* dst) { // OPZIONALE: Trasforma un intero in una stringa (dimensione fissa)
+
+	/* Note:
+	 * E' possibile creare una funzione che alloca dinamicamente la stringa in base al valore da convertire, tuttavia non � conveniente per 2 motivi.
+	 * 1. Non � utilizzabile in un ciclo, in quanto non si preoccupa di deallocare la memoria, portando in fretta ad un esaurimento di RAM.
+	 * 2. Non � caricabile senza aumentare l'heap, in quanto fa uso dell'allocazione dinamica.
+	 * La soluzione sarebbe caricare la stringa in una struct che ne indica la dimensione corrente, avendo un dimensionamento fittizio (lo spazio usato rimane tale).
+	 * La scelta implementativa (pi� semplice ed efficace) � stata quella di mappare gli zeri di padding a sinistra della cifra a 'n',
+	 * che non viene riconosciuto da un mapping, spegnendo i catodi e ottenendo l'effetto desiderato.
+	 * Il calcolo dinamico della dimensione persiste nel caso di stringhe definite staticamente dal main.
+	 */
+
+	int flag = 0;
+	char local_val;
+	if (val > 99999999) { // Printa tutto E per dire error (se si cicla continuando a sommare prima o poi va in overflow)
+		for (int i = 7; i>=0; i--) {
+		dst[i] = 'E';
+
+		}
+		return;
+	}
+	for (int i = 7; i>=0; i--) { // Converte ciascuna cifra alla posizione corrispondente
+		(local_val) = int_to_char(val % 10);
+		if (!val && i!=7) flag = 1; // indica che sono finite le cifre !=0 (rimangono gli zero di padding a sinistra)
+
+		val = val / 10;
+
+		if (flag) dst[i] = 'n'; // Carattere fittizio (spegne i catodi nel mapping)
+		else dst[i] = local_val;
+
+
+	}
+}
+
+
+u8 lastAN_ON_string (int lastAN_indx) { // Utilizzata per creare la stringa di comparazione per anodeShift
+	return ~(1<<lastAN_indx);
+}
