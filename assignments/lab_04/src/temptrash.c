@@ -55,7 +55,7 @@ volatile u8 currentDigit = 0;
 
 
 // Function prototypes
-void timerISR();
+void timerISR(void) __attribute__((interrupt_handler));
 void write_digit(u8 digit, u8 position);
 void init_interrupt();
 void init_timer();
@@ -75,7 +75,7 @@ int main() {
 	return 0;
 }
 
-void timerISR() {
+void timerISR(void) {
     static int digitIdx = 0;
     u8 digitVal = digits[digitIdx];
     u8 anodePattern = ~(1 << digitIdx);
@@ -105,8 +105,6 @@ void init_interrupts() {
     *(volatile u32 *)(INTC_BASE_ADDR + MER) = 0b11; // Enable Master Enable Register (MER)
     *(volatile u32 *)(INTC_BASE_ADDR + IER) = 0b110; // Enable interrupts for INT[2] and INT[1] (Timer & Switch)
 
-    // Set ISR for timer
-    microblaze_register_handler((XInterruptHandler)TimerISR, NULL); 
     microblaze_enable_interrupts();
 }
 
