@@ -4,55 +4,42 @@
 #include "xil_printf.h"
 #include "xparameters.h"
 
+// Definitions
+#define TmrCtrNumber 0                     // Timer 0
+#define ONE_SECOND_PERIOD 100000000       // Timer counts for 1 second
+#define CNT_UDT0_MASK 0x00000001          // Timer count up/down mask
+#define TMR_T0INT_MASK 0x100              // Timer interrupt mask
+#define TIMER_INT_SRC 0b0100              // Timer interrupt source in INTC
 
-// Definizioni macro
-#define TmrCtrNumber   0               // Usiamo timer 0
-#define ONE_SECOND_PERIOD 100000000	   // Macro per definire un secondo
-#define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
-#define TMR_T0INT_MASK 0x100           // Timer interrupt mask
-#define TIMER_INT_SRC  0b0100          // Timer interrupt source in INTC
-// #define SWITCH_INT_SRC 0b0010          // Switch interrupt source in INTC
+#define INTC_BASE_ADDR XPAR_AXI_INTC_0_BASEADDR
+#define TIMER_BASE_ADDR XPAR_AXI_TIMER_0_BASEADDR
+#define SEV_SEG_BASE_ADDR XPAR_AXI_7SEGS_GPIO_BASEADDR // Adjust based on your design
 
-// Indirizzi
-// #define LED_BASE_ADDR     XPAR_AXI_16LEDS_GPIO_BASEADDR
-// #define SWITCH_BASE_ADDR  XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
-#define INTC_BASE_ADDR    XPAR_AXI_INTC_0_BASEADDR
-#define TIMER_BASE_ADDR   XPAR_AXI_TIMER_0_BASEADDR
+// Global Variables
+volatile u8 digits[8] = {0};              // Digits to be displayed
+volatile u8 currentDigit = 0;             // Current active digit (0-7)
 
-// Interrupt Controller Registers
-#define IAR 0x0C 	// Interrupt Acknowledge Register
-#define IER 0x08 	// Interrupt Enable Register
-#define MER 0x1C	// Master Enable Register
-
-// GPIO Peripheral Registers
-#define GIER 0x011C				                    // Global Interrupt Enable Register
-#define ISCR 0x0120				                    // Interrupt Status Clear Register
-#define Peripheral_IER 0x0128	                    // Interrupt Enable Register
-
-
+// Segment mapping for characters 0-9, A-F
 const u8 segmentDigitsMap[16] = {
-		0b00111111,		// 0
-		0b00000110,		// 1
-		0b01011011,		// 2
-		0b01001111,		// 3
-		0b01100110,		// 4
-		0b01101101,		// 5
-		0b01111101,		// 6
-		0b00000111,		// 7
-		0b01111111,		// 8
-		0b01101111,		// 9
-		0b01110111,		// A
-		0b01111100,		// B
-		0b00111001,		// C
-		0b00101110,		// D
-		0b01111001,		// E
-		0b01110001		// F
+    0b00111111, // 0
+    0b00000110, // 1
+    0b01011011, // 2
+    0b01001111, // 3
+    0b01100110, // 4
+    0b01101101, // 5
+    0b01111101, // 6
+    0b00000111, // 7
+    0b01111111, // 8
+    0b01101111, // 9
+    0b01110111, // A
+    0b01111100, // B
+    0b00111001, // C
+    0b00101110, // D
+    0b01111001, // E
+    0b01110001  // F
 };
 
-volatile u8 digits[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-volatile u8 currentDigit = 0;
-
-
+// Function Prototypes
 void write_digit(u8 digit, u8 position);
 void timerISR(void) __attribute__((interrupt_handler));
 void initialize_timer(int counterValue);
@@ -60,28 +47,36 @@ void acknowledge_timer_interrupt(void);
 void initialize_display(void);
 void display_number(int number);
 
-
-
-
-
+// Main Function
 int main() {
-	init_platform();
+    init_platform();
+    
+    initialize_display();  // Initialize the seven-segment display
+    initialize_timer(250000); // Timer for 50 Hz refresh rate
 
+    microblaze_enable_interrupts();
 
+    int counter = 0;
+    while (1) {
+        // Increment counter and display it on the 7-segment
+        display_number(counter++);
+        if (counter > 99999999) counter = 0; // Reset after 8 digits
+    }
 
-	while(1) {
-		// Background
-	}
-
-	cleanup_platform();
-	return 0;
+    cleanup_platform();
+    return 0;
 }
 
+// Function Implementations
+
+// Write a digit to the specific position on the display
 void write_digit(u8 digit, u8 position) {
-	u32 anodeMask = 1 << position;
-	u32 segmentData = segmentPatterns[digit];
-	*(volatile u32 *)(SEV_SEG_BASE_ADDR + 0x00) = ~anodeMask;
-	*(volatile u32 *)(SEV_SEG_BASE_ADDR + 0x04) = segmentData;
+    u32 anodeMask = ~(1 << position);  // Activate the selected anode
+    u32 segmentData = ~segmentDigitsMap[digit]; // Map digit to segments
+    
+    // Write to the display hardware registers
+    *(volatile u32 *)(SEV_SEG_BASE_ADDR) = anodeMask;
+    *(volatile u32 *)(SEV_SEG_BASE_ADDR + 0x4) = segmentData;
 }
 
 // Timer interrupt service routine
