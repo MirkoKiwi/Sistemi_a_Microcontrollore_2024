@@ -18,7 +18,8 @@
 // #define SWITCH_BASE_ADDR  XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
 #define INTC_BASE_ADDR      XPAR_AXI_INTC_0_BASEADDR
 #define TIMER_BASE_ADDR     XPAR_AXI_TIMER_0_BASEADDR
-#define ANODE_BASE_ADDR     XPAR_GPIO_1_BASEADDR
+#define SEV_SEG_BASE_ADDR	XPAR_AXI_7SEGS_GPIO_BASEADDR
+#define ANODE_BASE_ADDR     XPAR_AXI_7SEGSAN_GPIO_BASEADDR
 
 // Interrupt Controller Registers
 #define IAR 0x0C 	// Interrupt Acknowledge Register
@@ -62,7 +63,7 @@ void init_timer();
 
 
 int main() {
-	
+
     init_platform();
     init_interrupts();
     init_timer();
@@ -80,8 +81,8 @@ void timerISR(void) {
     u8 digitVal = digits[digitIdx];
     u8 anodePattern = ~(1 << digitIdx);
 
-    write_digit(digitVal, digitIdx); 
-    *(volatile u32 *)(ANODE_BASE_ADDR) = anode_pattern;
+    write_digit(digitVal, digitIdx);
+    *(volatile u32 *)(ANODE_BASE_ADDR) = anodePattern;
 
     digitIdx = (digitIdx + 1) % 8;   // Vai al prossimo numero
 
@@ -109,11 +110,11 @@ void init_interrupts() {
 }
 
 void init_timer() {
-    
+
     XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, 0x56); // Set timer control status register
     XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, ONE_SECOND_PERIOD / 1000); // Set timer load register for 1 ms period
-    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber); 
+    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);
 
-    // Start the timer 
+    // Start the timer
     XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 }
