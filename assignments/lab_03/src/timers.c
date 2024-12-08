@@ -104,22 +104,22 @@ void ledISR(void) {
 
         // Cambia il periodo del timer in base a quale gruppo di switch viene attivato
         if ( switchInput & 0x000F ) {
-            // Quadruplica il periodo di ciclo del timer in base ai 4 switch piu' a destra
+            // Quadruplica il periodo di ciclo del timer in base all'attivazione dei 4 switch piu' a destra
             int inputSwitch = ( switchInput & 0x000F );
-        	newCounterValue = ONE_SECOND_PERIOD * 4 * inputSwitch;
+        	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 4;
         }
         else if ( switchInput & 0x00F0 ) {
-        	// Raddoppia il periodo in base ai 4 switch successivi (verso destra)
+        	// Raddoppia il periodo in base all'attivazione dei 4 switch successivi (verso destra)
         	int inputSwitch = (( switchInput & 0x00F0 ) >> 4 );
-        	newCounterValue = ONE_SECOND_PERIOD * 2 * inputSwitch;
+        	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 2;
         }
         else if ( switchInput & 0x0F00 ) {
-        	// Dimezza il periodo in base ai 4 switch successivi (verso sinistra)
+        	// Dimezza il periodo in base all'attivazione dei 4 switch successivi (verso sinistra)
         	int inputSwitch = (( switchInput & 0xF00 ) >> 8 );
         	newCounterValue = ONE_SECOND_PERIOD / ( inputSwitch * 2 );
         }
         else if ( switchInput & 0xF000 ) {
-            // Divide per 4 il periodo utilizzando i 4 switch piu' a sinistra
+            // Divide per 4 il periodo utilizzando quando i 4 switch piu' a sinistra vengono attivati
         	int inputSwitch = (( switchInput & 0xF000 ) >> 12 );
         	newCounterValue = ONE_SECOND_PERIOD / ( inputSwitch * 4 );
         }
