@@ -16,15 +16,35 @@
 #define CDP 0b10000000
 
 /* Timer and Interrupt Definitions */
-#define TIMER_NUMBER         0
+#define TmrCtrNumber         0
 #define TIMER_INT_SRC        0b0100
 #define TIMER_CTRL_RESET     0x56
-#define TIMER_INT_ACK_MASK   0x100
+#define TIMER_T0INT_MASK     0x100      // Timer interrupt mask
 #define TIMER_COUNTER_VALUE  250000
 
+/* Indirizzi */ 
+// #define LED_BASE_ADDR     XPAR_AXI_16LEDS_GPIO_BASEADDR
+// #define SWITCH_BASE_ADDR  XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
+#define INTC_BASE_ADDR      XPAR_AXI_INTC_0_BASEADDR
+#define TIMER_BASE_ADDR     XPAR_AXI_TIMER_0_BASEADDR
+#define SEV_SEG_BASE_ADDR   XPAR_AXI_7SEGS_GPIO_BASEADDR
+#define ANODE_BASE_ADDR     XPAR_AXI_7SEGSAN_GPIO_BASEADDR
+
+// Interrupt Controller Registers
+#define IAR 0x0C 	// Interrupt Acknowledge Register
+#define IER 0x08 	// Interrupt Enable Register
+#define MER 0x1C	// Master Enable Register
+
+/*
+// GPIO Peripheral Registers
+#define GIER 0x011C				                    // Global Interrupt Enable Register
+#define ISCR 0x0120				                    // Interrupt Status Clear Register
+#define Peripheral_IER 0x0128	                    // Interrupt Enable Register
+*/
+
 /* GPIO Base Addresses */
-#define AN_7SEG_OUTPUT_REG   ((volatile int*) XPAR_AXI_7SEGSAN_GPIO_BASEADDR)
-#define DIGIT_7SEG_OUTPUT_REG ((volatile int*) XPAR_AXI_7SEGS_GPIO_BASEADDR)
+#define AN_7SEG_OUTPUT_REG      ((volatile int*) XPAR_AXI_7SEGSAN_GPIO_BASEADDR)
+#define DIGIT_7SEG_OUTPUT_REG   ((volatile int*) XPAR_AXI_7SEGS_GPIO_BASEADDR)
 
 /* Function Prototypes */
 u8 sevseg_digitMapping(char c);
@@ -37,29 +57,28 @@ void intToString(int val, char *dst);
 u8 calculateLeftmostAnode(int lastAnIdx);
 
 /* Global Variables */
-char *stringSevSeg;      // Maps string to display
-int currentAnode = 0;    // Tracks the active anode
-int lastAnodeIdx = 7;    // Last active anode index
-u8 leftmostAnodeMask = 0xFE; // Mask for leftmost anode
+char *stringSevSeg;             // Maps string to display
+int currentAnode = 0;           // Tracks the active anode
+int lastAnodeIdx = 7;           // Last active anode index
+u8 leftmostAnodeMask = 0xFF;    // Mask for leftmost anode
 
 int main() {
     init_platform();
 
     /* Initialize Global Variables */
-    static char displayString[8] = {0}; // Static allocation to avoid dynamic memory overhead
-    stringSevSeg = displayString;
+    char sevSegBuffer[8] = {0}; // Static allocation to avoid dynamic memory overhead
+    stringSevSeg = sevSegBuffer;
 
     *AN_7SEG_OUTPUT_REG = ~1; // Initialize anode to the rightmost
     leftmostAnodeMask = calculateLeftmostAnode(lastAnodeIdx);
 
     /* Enable Interrupts and Timer */
-    microblaze_enable_interrupts();
-    timerInit(TIMER_COUNTER_VALUE);
+    init_timer(TIMER_COUNTER_VALUE);
 
     /* Main Loop */
     int counter = 0;
     while (1) {
-        intToString(counter / 10000, displayString);
+        intToString(counter / 10000, sevSegBuffer);
         counter++;
     }
 
@@ -68,52 +87,74 @@ int main() {
 }
 
 /* Helper Functions */
-u8 sevseg_digitMapping(char c) {
+u8 sevseg_digitMapping(char ch) {
     /* Map character to 7-segment display cathodes */
     const u8 digitMap[] = {
-        0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, // '0' - '7'
-        0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71  // '8' - 'F'
+        0b00111111,   // 0 
+        0b00000110,   // 1
+        0b01011011,   // 2
+        0b01001111,   // 3
+        0b01100110,   // 4
+        0b01101101,   // 5
+        0b01111101,   // 6
+        0b00000111,   // 7
+        0b01111111,   // 8
+        0b01101111,   // 9
+        0b01110111,   // A
+        0b01111100,   // B
+        0b00111001,   // C
+        0b00101110,   // D
+        0b01111001,   // E
+        0b01110001    // F
     };
-    if (c >= '0' && c <= '9') return ~digitMap[c - '0'];
-    if (c >= 'A' && c <= 'F') return ~digitMap[c - 'A' + 10];
-    return 0xFF; // Default (all segments off)
+
+    if ( ch >= '0' && ch <= '9' ) return ~digitMap[ch - '0'];
+    if ( ch >= 'A' && ch <= 'F' ) return ~digitMap[ch - 'A' + 10];
+    return 0xFF; // Default ( tutti i segmenti spenti )
 }
 
 void write_digit(u8 digit, u8 dotted) {
-    *DIGIT_7SEG_OUTPUT_REG = digit | (dotted ? CDP : 0);
+    *DIGIT_7SEG_OUTPUT_REG = digit | ( dotted ? CDP : 0 );
 }
 
-void timerInit(int valueCounter) {
-    /* Initialize Timer */
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x1C) = 3;  // Enable MER
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x08) = 0b110; // Enable IER
+void init_interruptCtrl() {
+    /* Abilita interrupt */
+    *(int *)(INTC_BASE_ADDR + MER) = 0b11;  // Enable MER
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110; // Enable IER
 
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, TIMER_CTRL_RESET);
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, valueCounter);
-    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+    microblaze_enable_interrupts();
+}
 
-    u32 ctrlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, ctrlStatus & (~XTC_CSR_LOAD_MASK));
-    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+void init_timer(int valueCounter) {
+
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, TIMER_CTRL_RESET);
+    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, valueCounter);
+    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);
+
+    u32 ctrlStatus = XTmrCtr_GetControlStatusReg(INTC_BASE_ADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, ctrlStatus & (~XTC_CSR_LOAD_MASK));
+    XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 }
 
 void timerISR() {
     /* Handle Timer Interrupt */
-    if (*(int*)XPAR_AXI_INTC_0_BASEADDR & TIMER_INT_SRC) {
+    if (*(int *)INTC_BASE_ADDR & TIMER_INT_SRC) {
         anodeShift();
         displaySingleVal();
-        *(int*)XPAR_AXI_TIMER_0_BASEADDR |= TIMER_INT_ACK_MASK; // Acknowledge Timer Interrupt
-        *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x0C) = TIMER_INT_SRC; // Acknowledge Global Interrupt
+
+        *(int *)TIMER_BASE_ADDR |= TIMER_T0INT_MASK;    // Acknowledge Timer Interrupt
+        *(int *)(INTC_BASE_ADDR + MER) = TIMER_INT_SRC; // Acknowledge Global Interrupt
     }
 }
 
 void anodeShift() {
     /* Shift to the next anode */
-    if (*AN_7SEG_OUTPUT_REG == leftmostAnodeMask) {
+    if ( *AN_7SEG_OUTPUT_REG == leftmostAnodeMask ) {
         *AN_7SEG_OUTPUT_REG = ~1;
         currentAnode = 0;
-    } else {
-        *AN_7SEG_OUTPUT_REG = (*AN_7SEG_OUTPUT_REG << 1) | 1;
+    } 
+    else {
+        *AN_7SEG_OUTPUT_REG = ( *AN_7SEG_OUTPUT_REG << 1 ) | 1;
         currentAnode++;
     }
 }
@@ -123,15 +164,22 @@ void displaySingleVal() {
     write_digit(sevseg_digitMapping(stringSevSeg[lastAnodeIdx - currentAnode]), 0);
 }
 
-void intToString(int val, char *dst) {
+void intToString(int num, char *destination) {
+    if ( num > 99999999 ) { // Printa tutto E per dire error (se si cicla continuando a sommare prima o poi va in overflow)
+		for ( int i = 7; i >= 0; i-- ) {
+		    destination[i] = 'E';
+		}
+		return;
+	}
+
     /* Convert integer to 8-character string */
-    for (int i = 7; i >= 0; i--) {
-        dst[i] = (val > 0 || i == 7) ? '0' + (val % 10) : ' ';
-        val /= 10;
+    for ( int i = 7; i >= 0; i-- ) {
+        destination[i] = ( num > 0 || i == 7 ) ? '0' + ( num % 10 ) : ' ';
+        num /= 10;
     }
 }
 
 u8 calculateLeftmostAnode(int lastAnIdx) {
-    return ~(1 << lastAnIdx);
+    return ~( 1 << lastAnIdx );
 }
 
