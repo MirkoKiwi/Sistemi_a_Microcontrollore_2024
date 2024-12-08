@@ -1,47 +1,45 @@
-#include "xintc.h"
-#include "xtmrctr.h"
-#include "xil_exception.h"
+#include <stdio.h>
+#include "platform.h"
+#include "xtmrctr_l.h"
+#include "xil_printf.h"
+#include "xparameters.h"
 
-#define TIMER_DEVICE_ID XPAR_TMRCTR_0_DEVICE_ID
-#define INTC_DEVICE_ID XPAR_INTC_0_DEVICE_ID
-#define TIMER_IRPT_INTR XPAR_INTC_0_TMRCTR_0_VEC_ID
 
-XIntc InterruptController;
-XTmrCtr TimerInstance;
+// Definizioni macro
+#define TmrCtrNumber   0               // Usiamo timer 0
+#define ONE_SECOND_PERIOD 100000000	   // Macro per definire un secondo
+#define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
+#define TMR_T0INT_MASK 0x100           // Timer interrupt mask
+#define TIMER_INT_SRC  0b0100          // Timer interrupt source in INTC
+// #define SWITCH_INT_SRC 0b0010          // Switch interrupt source in INTC
 
-void TimerISR(void *CallBackRef, u8 TmrCtrNumber) {
-    static int digit_idx = 0;
-    u8 digit_val = digits[digit_idx];
-    u8 anode_pattern = ~(1 << digit_idx);
-    
-    write_digit(digit_val, 0);
-    Xil_Out32(ANODE_BASEADDR, anode_pattern);
-    
-    digit_idx = (digit_idx + 1) % 8; // Vai al prossimo digit
-}
+// Indirizzi
+// #define LED_BASE_ADDR     XPAR_AXI_16LEDS_GPIO_BASEADDR
+// #define SWITCH_BASE_ADDR  XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
+#define INTC_BASE_ADDR    XPAR_AXI_INTC_0_BASEADDR
+#define TIMER_BASE_ADDR   XPAR_AXI_TIMER_0_BASEADDR
+
+// Interrupt Controller Registers
+#define IAR 0x0C 	// Interrupt Acknowledge Register
+#define IER 0x08 	// Interrupt Enable Register
+#define MER 0x1C	// Master Enable Register
+
+// GPIO Peripheral Registers
+#define GIER 0x011C				                    // Global Interrupt Enable Register
+#define ISCR 0x0120				                    // Interrupt Status Clear Register
+#define Peripheral_IER 0x0128	                    // Interrupt Enable Register
+
+
 
 int main() {
-    init_platform();
+	init_platform();
 
-    XIntc_Initialize(&InterruptController, INTC_DEVICE_ID);
-    XIntc_Connect(&InterruptController, TIMER_IRPT_INTR, (Xil_ExceptionHandler)TimerISR, (void *)&TimerInstance);
-    XIntc_Start(&InterruptController, XIN_REAL_MODE);
-    XIntc_Enable(&InterruptController, TIMER_IRPT_INTR);
-    
-    XTmrCtr_Initialize(&TimerInstance, TIMER_DEVICE_ID);
-    XTmrCtr_SetHandler(&TimerInstance, TimerISR, &TimerInstance);
-    XTmrCtr_SetOptions(&TimerInstance, 0, XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION);
-    XTmrCtr_SetResetValue(&TimerInstance, 0, ONE_SECOND_PERIOD / 1000);
-    XTmrCtr_Start(&TimerInstance, 0);
-    
-    Xil_ExceptionInit();
-    Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_INT, (Xil_ExceptionHandler)XIntc_InterruptHandler, &InterruptController);
-    Xil_ExceptionEnable();
-    
-    while (1) {
-        // Background
-    }
 
-    cleanup_platform();
-    return 0;
+
+	while(1) {
+		// Background
+	}
+
+	cleanup_platform();
+	return 0;
 }
