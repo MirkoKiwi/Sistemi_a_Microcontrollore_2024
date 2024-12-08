@@ -76,17 +76,19 @@ int main() {
 }
 
 void timerISR() {
-    static int digit_idx = 0;
-    u8 digit_val = digits[digit_idx];
-    u8 anode_pattern = ~(1 << digit_idx);
+    static int digitIdx = 0;
+    u8 digitVal = digits[digitIdx];
+    u8 anodePattern = ~(1 << digitIdx);
 
-    write_digit(digit_val, digit_idx); 
-    Xil_Out32(ANODE_BASE_ADDR, anode_pattern);
+    write_digit(digitVal, digitIdx); 
+    *(volatile u32 *)(ANODE_BASE_ADDR) = anode_pattern;
 
-    digit_idx = (digit_idx + 1) % 8; // Vai al prossimo digit
+    digitIdx = (digitIdx + 1) % 8;   // Vai al prossimo numero
 
+    // Acknowledge the timer interrupt
     XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber) | XTC_CSR_INT_OCCURED_MASK);
 
+    // Acknowledge the interrupt in the interrupt controller
     *(volatile u32 *)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC;
 }
 
@@ -94,8 +96,8 @@ void write_digit(u8 digit, u8 position) {
     u32 anodeMask = 1 << position;
     u32 segmentData = segmentDigitsMap[digit];
 
-    Xil_Out32(SEV_SEG_BASE_ADDR, segmentData);
-    Xil_Out32(ANODE_BASE_ADDR, ~anodeMask);
+    *(volatile u32 *)(SEV_SEG_BASE_ADDR) = ~segmentData;
+    *(volatile u32 *)(ANODE_BASE_ADDR) = ~anodeMask;
 }
 
 void init_interrupts() {
