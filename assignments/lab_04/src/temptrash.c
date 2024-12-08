@@ -184,7 +184,7 @@ void init_timer() {
     // LOAD0 reset
     u32 controlStatus;
     controlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
-    XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, controlStatus & ~(XTC_CSR_LOAD_MASK));
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, controlStatus & ~(XTC_CSR_LOAD_MASK));
 
     // Start the timer 
     XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
