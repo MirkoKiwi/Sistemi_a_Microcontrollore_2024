@@ -30,6 +30,37 @@
 #define Peripheral_IER 0x0128	                    // Interrupt Enable Register
 
 
+const u8 segmentDigitsMap[15] = {
+		0b00111111,		// 0
+		0b00000110,		// 1
+		0b01011011,		// 2
+		0b01001111,		// 3
+		0b01100110,		// 4
+		0b01101101,		// 5
+		0b01111101,		// 6
+		0b00000111,		// 7
+		0b01111111,		// 8
+		0b01101111,		// 9
+		0b01110111,		// A
+		0b01111100,		// B
+		0b00111001,		// C
+		0b00101110,		// D
+		0b01111001,		// E
+		0b01110001		// F
+};
+
+volatile u8 digits[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+volatile u8 currentDigit = 0;
+
+void write_digit(u8 digit, u8 position) {
+	u32 anodeMask = 1 << position;
+	u32 segmentData = segmentPatterns[digit];
+	*(volatile u32 *)(SEV_SEG_BASE_ADDR + 0x00) = ~anodeMask;
+	*(volatile u32 *)(SEV_SEG_BASE_ADDR + 0x04) = segmentData;
+}
+
+
+
 
 int main() {
 	init_platform();
