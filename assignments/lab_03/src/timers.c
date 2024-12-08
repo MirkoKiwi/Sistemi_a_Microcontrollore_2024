@@ -100,9 +100,25 @@ void ledISR(void) {
     if ( interruptSource & SWITCH_INT_SRC ) {
         // Legge lo stato degli switch
         int switchInput = ~(*(int *)SWITCH_BASE_ADDR);
+
         int newCounterValue = ONE_SECOND_PERIOD;
 
+        /*
         // Cambia il periodo del timer in base a quale gruppo di switch viene attivato
+        if ( switchInput & 0x00FF ) {
+            // Aumenta il periodo di ciclo del timer in base all'attivazione degli 8 switch piu' a destra
+            int inputSwitch = ( switchInput & 0x00FF );
+        	newCounterValue = ONE_SECOND_PERIOD * ( inputSwitch );
+        }
+        else if ( switchInput & 0xFF00 ) {
+        	// Diminuisce il periodo in base all'attivazione degli 8 switch piu' a sinistra
+        	int inputSwitch = (( switchInput & 0xFF00 ) >> 8 );
+        	newCounterValue = ONE_SECOND_PERIOD / ( inputSwitch );
+        }
+		*/
+
+
+        // Cambia il periodo del timer in base a quale gruppo di switch viene attivato, l'intensita' dell'effetto aumenta man mano che si scorre verso sinistra
         if ( switchInput & 0x000F ) {
             // Quadruplica il periodo di ciclo del timer in base all'attivazione dei 4 switch piu' a destra
             int inputSwitch = ( switchInput & 0x000F );
@@ -119,10 +135,12 @@ void ledISR(void) {
         	newCounterValue = ONE_SECOND_PERIOD / ( inputSwitch * 2 );
         }
         else if ( switchInput & 0xF000 ) {
-            // Divide per 4 il periodo utilizzando quando i 4 switch piu' a sinistra vengono attivati
+            // Divide per 4 il periodo quando i 4 switch piu' a sinistra vengono attivati
         	int inputSwitch = (( switchInput & 0xF000 ) >> 12 );
         	newCounterValue = ONE_SECOND_PERIOD / ( inputSwitch * 4 );
         }
+
+
 
         // Aggiorna il timer in base al nuovo valore impostato dagli switch
         XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, newCounterValue);
@@ -134,4 +152,3 @@ void ledISR(void) {
         *(int *)(INTC_BASE_ADDR + IAR) = 0b10;
     }
 }
-
