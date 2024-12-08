@@ -5,7 +5,7 @@
 #include "xparameters.h"
 
 
-// Definizioni
+// Definizioni macro
 #define TmrCtrNumber   0               // Usiamo timer 0
 #define ONE_SECOND_PERIOD 100000000	   // Macro per definire un secondo
 #define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
