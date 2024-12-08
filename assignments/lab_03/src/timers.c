@@ -97,19 +97,19 @@ void ledISR(void) {
     }
 
     // Verifica eventuali interrupt dagli switch
-    if (interruptSource & SWITCH_INT_SRC) {
+    if ( interruptSource & SWITCH_INT_SRC ) {
         // Legge lo stato degli switch
         int switchInput = ~(*(int *)SWITCH_BASE_ADDR);
         int newCounterValue = ONE_SECOND_PERIOD;
 
         // Cambia il periodo del timer in base a quale gruppo di switch viene attivato
-        if (switchInput & 0x000F) {
+        if ( switchInput & 0x000F ) {
             // Quadruplica il periodo di ciclo del timer in base ai 4 switch piu' a destra
             int inputSwitch = ( switchInput & 0x000F );
         	newCounterValue = ONE_SECOND_PERIOD * 4 * inputSwitch;
         }
         else if ( switchInput & 0x00F0 ) {
-        	// Raddoppia il periodo in base ai 4 switch successivi ( verso destra
+        	// Raddoppia il periodo in base ai 4 switch successivi (verso destra)
         	int inputSwitch = (( switchInput & 0x00F0 ) >> 4 );
         	newCounterValue = ONE_SECOND_PERIOD * 2 * inputSwitch;
         }
