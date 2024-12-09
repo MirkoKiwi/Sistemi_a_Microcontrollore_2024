@@ -121,8 +121,8 @@ void init_timer(int counterValue) {
 
 void timer0IntAck(void) {
     // Acknowledge interrupt del timer
-    *(int*)TIMER_BASE_ADDR |= (1 << 8); // Set 8th bit to acknowledge interrupt
+    *(int*)TIMER_BASE_ADDR |= TIMER_T0INT_MASK; 
 
     // Acknowledge Interrupt IAR
-    *(int*)(INTC_BASE_ADDR + IAR) = 0b100;
+    *(int*)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
 }
