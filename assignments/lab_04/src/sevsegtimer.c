@@ -5,7 +5,7 @@
 #include "xtmrctr_l.h"
 #include <stdlib.h>
 
-/* Definitions for Cathodes */
+// Definizione Catodi
 #define CA  0b00000001
 #define CB  0b00000010
 #define CC  0b00000100
@@ -15,14 +15,14 @@
 #define CG  0b01000000
 #define CDP 0b10000000
 
-/* Timer and Interrupt Definitions */
+// Definizioni Macro Timer
 #define TmrCtrNumber         0
 #define TIMER_INT_SRC        0b0100
 #define TIMER_CTRL_RESET     0x56
 #define TIMER_T0INT_MASK     0x100      // Timer interrupt mask
 #define TIMER_COUNTER_VALUE  250000
 
-/* Indirizzi */
+// Indirizzi
 // #define LED_BASE_ADDR     XPAR_AXI_16LEDS_GPIO_BASEADDR
 // #define SWITCH_BASE_ADDR  XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
 #define INTC_BASE_ADDR      XPAR_AXI_INTC_0_BASEADDR
@@ -42,11 +42,22 @@
 #define Peripheral_IER 0x0128	                    // Interrupt Enable Register
 */
 
-/* GPIO Base Addresses */
+// Indirizzi display 7 segmenti
 #define AN_7SEG_OUTPUT_REG      ((volatile int*) XPAR_AXI_7SEGSAN_GPIO_BASEADDR)
 #define DIGIT_7SEG_OUTPUT_REG   ((volatile int*) XPAR_AXI_7SEGS_GPIO_BASEADDR)
 
-/* Function Prototypes */
+
+// Variabili globali
+char *stringSevSeg;             // Mappa le stringhe al display
+int currentAnode = 0;           // Tiene conto dell'anodo attualmente attivo
+int lastAnodeIdx = 7;           // Indice dell'ultimo anodo attivo
+u8 leftmostAnodeMask = 0xFE;    // Maschera per l'anodo più a sinistra
+
+const float timerStep = 1000;	// Velocità conteggio sul display
+								// (valore piu' basso, conteggio piu' veloce)
+
+
+// Prototipi Funzioni
 u8 sevseg_digitMapping(char c);
 void write_digit(u8 digit, u8 dotted);
 void timerInit(int valueCounter);
@@ -56,30 +67,26 @@ void displaySingleVal(void);
 void intToString(int val, char *dst);
 u8 calculateLeftmostAnode(int lastAnIdx);
 
-/* Global Variables */
-char *stringSevSeg;             // Maps string to display
-int currentAnode = 0;           // Tracks the active anode
-int lastAnodeIdx = 7;           // Last active anode index
-u8 leftmostAnodeMask = 0xFE;    // Mask for leftmost anode
 
 int main() {
     init_platform();
 
-    /* Initialize Global Variables */
-    char sevSegBuffer[8] = {0}; // Static allocation to avoid dynamic memory overhead
+    char sevSegBuffer[8] = {0}; // Implementazione statica, dato che includere stdlib potrebbe causare errori di memoria nella scheda
     stringSevSeg = sevSegBuffer;
 
-    *AN_7SEG_OUTPUT_REG = ~1; // Initialize anode to the rightmost
+	// Inizializzazione anodo più a destra
+    *AN_7SEG_OUTPUT_REG = ~1;
     leftmostAnodeMask = calculateLeftmostAnode(lastAnodeIdx);
 
-    /* Enable Interrupts and Timer */
-    microblaze_enable_interrupts();
+    // Inizializza interrupt e timer
+    init_interruptCtrl();
     init_timer(TIMER_COUNTER_VALUE);
 
-    /* Main Loop */
+
     int counter = 0;
+
     while (1) {
-        intToString(counter / 10000, sevSegBuffer);
+        intToString(counter / timerStep, sevSegBuffer);
         counter++;
     }
 
@@ -87,9 +94,8 @@ int main() {
     return 0;
 }
 
-/* Helper Functions */
 u8 sevseg_digitMapping(char ch) {
-    /* Map character to 7-segment display cathodes */
+    // Mappaggio dei caratteri per il display a 7 segmenti
     const u8 digitMap[] = {
         0b00111111,   // 0
         0b00000110,   // 1
@@ -119,9 +125,12 @@ void write_digit(u8 digit, u8 dotted) {
 }
 
 void init_interruptCtrl() {
-    /* Abilita interrupt */
-    *(int *)(INTC_BASE_ADDR + MER) = 0b11;  // Enable MER
-    *(int *)(INTC_BASE_ADDR + IER) = 0b110; // Enable IER
+    // Abilita interrupt controller
+    *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER
+
+	// Abilita interrupt nel processore
+    microblaze_enable_interrupts();
 }
 
 void init_timer(int valueCounter) {
@@ -137,7 +146,7 @@ void init_timer(int valueCounter) {
 }
 
 void timerISR() {
-    /* Handle Timer Interrupt */
+    // Timer Interrupt Service Routine
     if (*(int *)INTC_BASE_ADDR & TIMER_INT_SRC) {
         anodeShift();
         displaySingleVal();
@@ -148,7 +157,7 @@ void timerISR() {
 }
 
 void anodeShift() {
-    /* Shift to the next anode */
+    // Shifta al prossimo anodo
     if ( *AN_7SEG_OUTPUT_REG == leftmostAnodeMask ) {
         *AN_7SEG_OUTPUT_REG = ~1;
         currentAnode = 0;
@@ -160,19 +169,19 @@ void anodeShift() {
 }
 
 void displaySingleVal() {
-    /* Display the digit corresponding to the active anode */
+    // Mostra la cifra corrispondente all'anodo
     write_digit(sevseg_digitMapping(stringSevSeg[lastAnodeIdx - currentAnode]), 0);
 }
 
 void intToString(int num, char *destination) {
-    if ( num > 99999999 ) { // Printa tutto E per dire error (se si cicla continuando a sommare prima o poi va in overflow)
+    if ( num > 99999999 ) { 	// Tutto il display mostra E per mostrare un overflow del valore
 		for ( int i = 7; i >= 0; i-- ) {
 		    destination[i] = 'E';
 		}
 		return;
 	}
 
-    /* Convert integer to 8-character string */
+    // Converte un int in una stringa di 8 valori
     for ( int i = 7; i >= 0; i-- ) {
         destination[i] = ( num > 0 || i == 7 ) ? '0' + ( num % 10 ) : ' ';
         num /= 10;
