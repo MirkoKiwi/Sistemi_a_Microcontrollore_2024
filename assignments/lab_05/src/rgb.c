@@ -33,14 +33,14 @@
 volatile int* AXI_RGBLEDS = (int*)XPAR_AXI_RGBLEDS_GPIO_BASEADDR;
 
 /* Variabili Globali */
-const int maxDutyCycle = 256 / 64;	// Intensita' Colore
+const int maxDutyCycle = ( 512 / 2 ) / 32;	// Intensita' Colore (Treshold consigliato 256)
 int dutyCycleCounter = 0;
 
 int leftRLevel, leftGLevel, leftBLevel;
 int rightRLevel, rightGLevel, rightBLevel;
 
 
-/* Prototipi Funzioni */
+
 void init_interruptCtrl();
 void init_timer(int counterValue);
 void timer0IntAck(void);
@@ -74,10 +74,10 @@ int main() {
 void timerISR(void) {
     int interruptSource = *(int*)INTC_BASE_ADDR;
     if (interruptSource & TIMER_INT_SRC) {
-        dutyCycleCounter = (dutyCycleCounter < 512) ? (dutyCycleCounter + 1) : 0;
+        dutyCycleCounter = ( dutyCycleCounter < 512) ? (dutyCycleCounter + 1) : 0;
 
         if ( dutyCycleCounter < maxDutyCycle ) {
-            // Alza o abbassa i bit in base al duty cycle
+            // OR per alzare i bit, XOR ( A and not B ) per abbassarli
             *AXI_RGBLEDS =
                 ( ( dutyCycleCounter < leftRLevel ) ? ( *AXI_RGBLEDS | 0b1000 ) : ( *AXI_RGBLEDS & ~0b1000) ) |
                 ( ( dutyCycleCounter < leftGLevel ) ? ( *AXI_RGBLEDS | 0b10000 ) : ( *AXI_RGBLEDS & ~0b10000) ) |
@@ -96,10 +96,11 @@ void timerISR(void) {
 
 
 void init_interruptCtrl() {
-    /* Abilita interrupt */
+    // Abilita interrupt
     *(int *)(INTC_BASE_ADDR + MER) = 0b11;  // Abilita MER
     *(int *)(INTC_BASE_ADDR + IER) = 0b110; // Abilita IER
 
+    // Abilita interrupt dìnel processore
     microblaze_enable_interrupts();
 }
 
@@ -118,9 +119,9 @@ void init_timer(int counterValue) {
 }
 
 void timer0IntAck(void) {
-    // Acknowledge Timer Interrupt
+    // Acknowledge interrupt del timer
     *(int*)TIMER_BASE_ADDR |= (1 << 8); // Set 8th bit to acknowledge interrupt
 
-    // Acknowledge Interrupt IAR (Interrupt Acknowledge Register)
+    // Acknowledge Interrupt IAR
     *(int*)(INTC_BASE_ADDR + IAR) = 0b100;
 }
