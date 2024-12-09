@@ -68,7 +68,7 @@ int main() {
     ControlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
     XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, ControlStatus & (~XTC_CSR_LOAD_MASK));
 
-    // Abilita il timer
+    // Attiva il timer
     XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 
     while (1) {
