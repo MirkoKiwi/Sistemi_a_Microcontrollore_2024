@@ -32,6 +32,7 @@
 
 void ledISR(void) __attribute__((interrupt_handler));
 void init_interruptCtrl();
+void init_peripheralInterrupt(int address);
 void init_timer(int counterValue);
 void timer0IntAck(void);
 
@@ -39,21 +40,17 @@ void timer0IntAck(void);
 int main() {
     init_platform();
 
-	// Abilita interrupt 
+	// Abilita interrupt
 	init_interruptCtrl();
 
 	// Inizializza timer ad 1 secondo
 	init_timer(ONE_SECOND_PERIOD);
-    
+
     // Reset LED
     *(int *)LED_BASE_ADDR = 0;
 
-
-    // Abilita interrupt degli switch
-    *(int *)(SWITCH_BASE_ADDR + GIER) = 1 << 31;    		// Global Interrupt
-    *(int *)(SWITCH_BASE_ADDR + Peripheral_IER) = 0b11;     // Abilita Channel Interrupt
-
-
+    // Abilita interrupt switch
+    init_peripheralInterrupt(SWITCH_BASE_ADDR);
 
 
     while (1) {
@@ -132,8 +129,9 @@ void ledISR(void) {
         // Acknowledge dell'interrupt in INTC (INT[1])
         *(int *)(INTC_BASE_ADDR + IAR) = 0b10;
     }
-}	
+}
 
+/* Inizializza l'interrupt del processore */
 void init_interruptCtrl() {
     // Abilita interrupt controller
     *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
@@ -141,6 +139,13 @@ void init_interruptCtrl() {
 
 	// Abilita interrupt nel processore
     microblaze_enable_interrupts();
+}
+
+/* Inizializza l'interrupt per una qualsiasi periferica */
+void init_peripheralInterrupt(int address) {
+	// Abilita interrupt degli switch
+	*(int *)(SWITCH_BASE_ADDR + GIER) = 1 << 31;    		// Global Interrupt
+	*(int *)(SWITCH_BASE_ADDR + Peripheral_IER) = 0b11;     // Abilita Channel Interrupt
 }
 
 
