@@ -135,7 +135,7 @@ void ledISR(void) {
 void init_interruptCtrl() {
     // Abilita interrupt controller
     *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
-    *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER per INT[2] e INT[1] (Timer e Switch)
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER
 
 	// Abilita interrupt nel processore
     microblaze_enable_interrupts();
