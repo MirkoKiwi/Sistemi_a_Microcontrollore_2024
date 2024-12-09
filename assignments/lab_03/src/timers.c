@@ -31,45 +31,30 @@
 
 
 void ledISR(void) __attribute__((interrupt_handler));
+void init_interruptCtrl();
+void init_timer(int counterValue);
+void timer0IntAck(void);
+
 
 int main() {
     init_platform();
 
-    u32 ControlStatus;
+	// Abilita interrupt 
+	init_interruptCtrl();
 
+	// Inizializza timer ad 1 secondo
+	init_timer(ONE_SECOND_PERIOD);
+    
     // Reset LED
     *(int *)LED_BASE_ADDR = 0;
 
-    // Abilita interrupt nel processore
-    microblaze_enable_interrupts();
-
-
-    // Abilita interrupt controller
-    *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
-    *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER per INT[2] e INT[1] (Timer e Switch)
 
     // Abilita interrupt degli switch
     *(int *)(SWITCH_BASE_ADDR + GIER) = 1 << 31;    		// Global Interrupt
     *(int *)(SWITCH_BASE_ADDR + Peripheral_IER) = 0b11;     // Abilita Channel Interrupt
 
 
-    /* Configurazione TIMER */
-    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, 0x56); // Imposta il timer control status register
-    																  // Il valore 0x56 ci permette di attivare rispettivamente il bit
-    																  // 5, che permette di caricare il valore dal registro di carico TLR1 nel registro del counter TCR1
-    																  // il bit 3 che permette al timer di sincronizzarsi con segnali esterni (ISR in questo caso)
-    																  // il bit 1 permette al timer di conteggiare "verso il basso"
 
-    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, ONE_SECOND_PERIOD);   // Imposta il load-register ad 1 secondo
-    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       		// Initializza il timer, facendolo iniziare a contare
-
-
-    // Fa partire il timer resettando il bit di LOAD0
-    ControlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
-    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, ControlStatus & (~XTC_CSR_LOAD_MASK));
-
-    // Attiva il timer
-    XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 
     while (1) {
         // Background
@@ -89,11 +74,7 @@ void ledISR(void) {
         // Intermittenza dei LED
         *(int *)LED_BASE_ADDR = ~(*(int *)LED_BASE_ADDR);
 
-        // Acknowledge interrupt del timer
-        *(int *)TIMER_BASE_ADDR = (1 << 8) | (*(int *)TIMER_BASE_ADDR); // Imposta il bit T0INT ad 1 nel control register
-
-        // Acknowledge dell'interrupt in INTC (INT[2])
-        *(int *)(INTC_BASE_ADDR + IAR) = 0b100;
+		timer0IntAck();
     }
 
     // Verifica eventuali interrupt dagli switch
@@ -125,7 +106,7 @@ void ledISR(void) {
         	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 4;
         }
         else if ( switchInput & 0x00F0 ) {
-        	// Raddoppia il periodo in base all'attivazione dei 4 switch successivi (verso destra)
+        	// Raddoppia il periodo di ciclo in base all'attivazione dei 4 switch successivi (verso destra)
         	int inputSwitch = (( switchInput & 0x00F0 ) >> 4 );
         	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 2;
         }
@@ -151,4 +132,43 @@ void ledISR(void) {
         // Acknowledge dell'interrupt in INTC (INT[1])
         *(int *)(INTC_BASE_ADDR + IAR) = 0b10;
     }
+}	
+
+void init_interruptCtrl() {
+    // Abilita interrupt controller
+    *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER per INT[2] e INT[1] (Timer e Switch)
+
+	// Abilita interrupt nel processore
+    microblaze_enable_interrupts();
+}
+
+
+void init_timer(int counterValue) {
+    /* Configurazione TIMER */
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, 0x56); // Imposta il timer control status register
+    																  // Il valore 0x56 ci permette di attivare rispettivamente il bit
+    																  // 5, che permette di caricare il valore dal registro di carico TLR1 nel registro del counter TCR1
+    																  // il bit 3 che permette al timer di sincronizzarsi con segnali esterni (ISR in questo caso)
+    																  // il bit 1 permette al timer di conteggiare "verso il basso"
+
+    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, ONE_SECOND_PERIOD);   // Imposta il load-register ad 1 secondo
+    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       		// Initializza il timer, facendolo iniziare a contare
+
+
+	u32 controlStatus;
+    // Fa partire il timer resettando il bit di LOAD0
+    controlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, controlStatus & (~XTC_CSR_LOAD_MASK));
+
+    // Attiva il timer
+    XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
+}
+
+void timer0IntAck(void) {
+	// Acknowledge interrupt del timer
+	*(int *)TIMER_BASE_ADDR = (1 << 8) | (*(int *)TIMER_BASE_ADDR); // Imposta il bit T0INT ad 1 nel control register
+
+	// Acknowledge dell'interrupt in INTC (INT[2])
+	*(int *)(INTC_BASE_ADDR + IAR) = 0b100;
 }
