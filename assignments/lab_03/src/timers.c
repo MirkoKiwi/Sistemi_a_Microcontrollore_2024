@@ -174,6 +174,6 @@ void timer0IntAck(void) {
 	// Acknowledge interrupt del timer
 	*(int *)TIMER_BASE_ADDR = (1 << 8) | (*(int *)TIMER_BASE_ADDR); // Imposta il bit T0INT ad 1 nel control register
 
-	// Acknowledge dell'interrupt in INTC (INT[2])
+	// Acknowledge Interrupt IAR 
 	*(int *)(INTC_BASE_ADDR + IAR) = 0b100;
 }
