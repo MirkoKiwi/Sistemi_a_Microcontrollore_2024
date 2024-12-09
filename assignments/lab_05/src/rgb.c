@@ -6,7 +6,7 @@
 #include "sleep.h"
 
 
-/* Macro Timer */
+// Definizioni Macro Timer
 #define TmrCtrNumber         0
 #define TIMER_INT_SRC        0b0100
 #define TIMER_CTRL_RESET     0x56
@@ -25,14 +25,14 @@
 #define IER 0x08 	// Interrupt Enable Register
 #define MER 0x1C	// Master Enable Register
 
-/* LEDs */
+// LED
 #define LED_RIGHT 0b000111
 #define LED_LEFT 0b111000
 
-/* Indirizzo Registro LED */
+// Indirizzo Registro LED
 volatile int* AXI_RGBLEDS = (int*)XPAR_AXI_RGBLEDS_GPIO_BASEADDR;
 
-/* Variabili Globali */
+// Variabili Globali
 const int maxDutyCycle = ( 512 / 2 ) / 32;	// Intensita' Colore (Treshold consigliato 256)
 int dutyCycleCounter = 0;
 
@@ -51,10 +51,11 @@ void timerISR(void) __attribute__((interrupt_handler));
 int main() {
     init_platform();
 
+    // Inizializzazione intterupt e timer
     init_interruptCtrl();
     init_timer(3000);
 
-
+    // Impostazione colori
     leftRLevel = 0;
     leftGLevel = 128;
     leftBLevel = 0;
