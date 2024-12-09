@@ -56,12 +56,12 @@ int main() {
     init_timer(3000);
 
     // Impostazione colori
-    leftRLevel = 0;
+    leftRLevel = 255;
     leftGLevel = 128;
     leftBLevel = 0;
-    rightRLevel = 128;
-    rightGLevel = 0;
-    rightBLevel = 0;
+    rightRLevel = 255;
+    rightGLevel = 255;
+    rightBLevel = 255;
 
     while (1) {
         // Background
