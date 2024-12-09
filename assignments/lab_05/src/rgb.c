@@ -40,7 +40,7 @@ int leftRLevel, leftGLevel, leftBLevel;
 int rightRLevel, rightGLevel, rightBLevel;
 
 
-
+// Prototipi Funzioni
 void timerISR(void) __attribute__((interrupt_handler));
 void init_interruptCtrl();
 void init_timer(int counterValue);
