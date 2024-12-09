@@ -41,10 +41,10 @@ int rightRLevel, rightGLevel, rightBLevel;
 
 
 
+void timerISR(void) __attribute__((interrupt_handler));
 void init_interruptCtrl();
 void init_timer(int counterValue);
 void timer0IntAck(void);
-void timerISR(void) __attribute__((interrupt_handler));
 
 
 
