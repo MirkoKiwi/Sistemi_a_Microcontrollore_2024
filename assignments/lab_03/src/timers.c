@@ -5,11 +5,12 @@
 #include "xparameters.h"
 
 
-// Definizioni Macro Timer
+// Definizioni macro
 #define TmrCtrNumber   0               // Usiamo timer 0
 #define ONE_SECOND_PERIOD 100000000	   // Macro per definire un secondo
 #define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
 #define TMR_T0INT_MASK 0x100           // Timer interrupt mask
+#define TIMER_INT_SRC  0b100           // Timer interrupt source in INTC
 #define SWITCH_INT_SRC 0b0010          // Switch interrupt source in INTC
 
 // Indirizzi
@@ -28,10 +29,11 @@
 #define ISCR 0x0120				                    // Interrupt Status Clear Register
 #define Peripheral_IER 0x0128	                    // Interrupt Enable Register
 
+
 // Prototipi Funzioni
 void ledISR(void) __attribute__((interrupt_handler));
 void init_interruptCtrl();
-void init_peripheralInterrupt(int address);
+void init_peripheralInterrupt(int baseAddress);
 void init_timer(int counterValue);
 void timer0IntAck(void);
 
@@ -39,18 +41,17 @@ void timer0IntAck(void);
 int main() {
     init_platform();
 
-	// Abilita interrupt
-	init_interruptCtrl();
-
-	// Inizializza timer ad 1 secondo
-	init_timer(ONE_SECOND_PERIOD);
-
     // Reset LED
     *(int *)LED_BASE_ADDR = 0;
 
-    // Abilita interrupt switch
-    init_peripheralInterrupt(SWITCH_BASE_ADDR);
+	// Abilita interrupt
+	init_interruptCtrl();
 
+	// Abilita interrupt switch
+	init_peripheralInterrupt(SWITCH_BASE_ADDR);
+
+	// Inizializza timer ad 1 secondo
+	init_timer(ONE_SECOND_PERIOD);
 
     while (1) {
         // Background
@@ -102,7 +103,7 @@ void ledISR(void) {
         	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 4;
         }
         else if ( switchInput & 0x00F0 ) {
-        	// Raddoppia il periodo di ciclo in base all'attivazione dei 4 switch successivi (verso destra)
+        	// Raddoppia il periodo in base all'attivazione dei 4 switch successivi (verso destra)
         	int inputSwitch = (( switchInput & 0x00F0 ) >> 4 );
         	newCounterValue = ONE_SECOND_PERIOD * inputSwitch * 2;
         }
@@ -130,21 +131,19 @@ void ledISR(void) {
     }
 }
 
-/* Inizializza l'interrupt del processore */
 void init_interruptCtrl() {
-    // Abilita interrupt controller
+	// Abilita interrupt controller
     *(int *)(INTC_BASE_ADDR + MER) = 0b11;         // Abilita MER
     *(int *)(INTC_BASE_ADDR + IER) = 0b110;        // Abilita IER
 
-	// Abilita interrupt nel processore
+    // Abilita interrupt dìnel processore
     microblaze_enable_interrupts();
 }
 
-/* Inizializza l'interrupt per una qualsiasi periferica */
-void init_peripheralInterrupt(int address) {
+init_peripheralInterrupt(int baseAddress) {
 	// Abilita interrupt degli switch
-	*(int *)(SWITCH_BASE_ADDR + GIER) = 1 << 31;    		// Global Interrupt
-	*(int *)(SWITCH_BASE_ADDR + Peripheral_IER) = 0b11;     // Abilita Channel Interrupt
+    *(int *)(baseAddress + GIER) = 1 << 31;    			// Global Interrupt
+    *(int *)(baseAddress + Peripheral_IER) = 0b11;     	// Abilita Channel Interrupt
 }
 
 
@@ -156,13 +155,12 @@ void init_timer(int counterValue) {
     																  // il bit 3 che permette al timer di sincronizzarsi con segnali esterni (ISR in questo caso)
     																  // il bit 1 permette al timer di conteggiare "verso il basso"
 
-    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, ONE_SECOND_PERIOD);   // Imposta il load-register ad 1 secondo
-    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       		// Initializza il timer, facendolo iniziare a contare
+    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, counterValue);  // Imposta il load-register ad 1 secondo
+    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       // Initializza il timer, facendolo iniziare a contare
 
 
-	u32 controlStatus;
     // Fa partire il timer resettando il bit di LOAD0
-    controlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
     XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, controlStatus & (~XTC_CSR_LOAD_MASK));
 
     // Attiva il timer
@@ -171,8 +169,8 @@ void init_timer(int counterValue) {
 
 void timer0IntAck(void) {
     // Acknowledge interrupt del timer
-    *(int*)TIMER_BASE_ADDR |= TIMER_T0INT_MASK; 
+    *(int *)TIMER_BASE_ADDR |= TMR_T0INT_MASK; // Imposta il bit T0INT ad 1 nel control register
 
-    // Acknowledge Interrupt IAR
-    *(int*)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
+    // Acknowledge dell'interrupt IAR
+    *(int *)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC;
 }
