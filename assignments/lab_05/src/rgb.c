@@ -14,7 +14,7 @@
 #define TIMER_T0INT_MASK     0x100      // Timer interrupt mask
 #define TIMER_COUNTER_VALUE  250000
 
-/* Indirizzi */
+// Indirizzi 
 #define LED_BASE_ADDR     	XPAR_AXI_16LEDS_GPIO_BASEADDR
 #define SWITCH_BASE_ADDR  	XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
 #define INTC_BASE_ADDR      XPAR_AXI_INTC_0_BASEADDR
