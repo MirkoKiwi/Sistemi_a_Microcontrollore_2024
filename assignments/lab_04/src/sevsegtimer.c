@@ -58,13 +58,15 @@ const float timerStep = 1000;	// Velocità conteggio sul display
 
 
 // Prototipi Funzioni
-u8 sevseg_digitMapping(char c);
+u8 sevSegDigitMap(char ch);
 void write_digit(u8 digit, u8 dotted);
-void timerInit(int valueCounter);
+void init_interruptCtrl();
+void init_timer(int valueCounter);
+void timer0IntAck();
 void timerISR(void) __attribute__((interrupt_handler));
 void anodeShift(void);
 void displaySingleVal(void);
-void intToString(int val, char *dst);
+void intToString(int num, char *destination);
 u8 calculateLeftmostAnode(int lastAnIdx);
 
 
@@ -94,7 +96,7 @@ int main() {
     return 0;
 }
 
-u8 sevseg_digitMapping(char ch) {
+u8 sevSegDigitMap(char ch) {
     // Mappaggio dei caratteri per il display a 7 segmenti
     const u8 digitMap[] = {
         0b00111111,   // 0
@@ -145,14 +147,21 @@ void init_timer(int valueCounter) {
     XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 }
 
+void timer0IntAck(void) {
+    // Acknowledge interrupt del timer
+    *(int*)TIMER_BASE_ADDR |= TIMER_T0INT_MASK;
+
+    // Acknowledge Interrupt IAR
+    *(int*)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
+}
+
 void timerISR() {
     // Timer Interrupt Service Routine
     if (*(int *)INTC_BASE_ADDR & TIMER_INT_SRC) {
         anodeShift();
         displaySingleVal();
 
-        *(int *)TIMER_BASE_ADDR |= TIMER_T0INT_MASK;    // Acknowledge Timer Interrupt
-        *(int *)(INTC_BASE_ADDR + IAR) = TIMER_INT_SRC; // Acknowledge Global Interrupt
+        timer0IntAck();
     }
 }
 
@@ -170,7 +179,7 @@ void anodeShift() {
 
 void displaySingleVal() {
     // Mostra la cifra corrispondente all'anodo
-    write_digit(sevseg_digitMapping(stringSevSeg[lastAnodeIdx - currentAnode]), 0);
+    write_digit(sevSegDigitMap(stringSevSeg[lastAnodeIdx - currentAnode]), 0);
 }
 
 void intToString(int num, char *destination) {
@@ -191,3 +200,4 @@ void intToString(int num, char *destination) {
 u8 calculateLeftmostAnode(int lastAnIdx) {
     return ~( 1 << lastAnIdx );
 }
+
