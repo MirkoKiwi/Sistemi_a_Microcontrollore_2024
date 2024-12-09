@@ -29,7 +29,7 @@
 #define ISCR 0x0120				                    // Interrupt Status Clear Register
 #define Peripheral_IER 0x0128	                    // Interrupt Enable Register
 
-
+// Prototipi Funzioni
 void ledISR(void) __attribute__((interrupt_handler));
 void init_interruptCtrl();
 void init_peripheralInterrupt(int address);
