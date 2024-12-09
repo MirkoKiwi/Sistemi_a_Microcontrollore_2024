@@ -10,7 +10,6 @@
 #define ONE_SECOND_PERIOD 100000000	   // Macro per definire un secondo
 #define CNT_UDT0_MASK  0x00000001      // Timer count up/down mask
 #define TMR_T0INT_MASK 0x100           // Timer interrupt mask
-#define TIMER_INT_SRC  0b0100          // Timer interrupt source in INTC
 #define SWITCH_INT_SRC 0b0010          // Switch interrupt source in INTC
 
 // Indirizzi
