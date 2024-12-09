@@ -53,7 +53,7 @@ int currentAnode = 0;           // Tiene conto dell'anodo attualmente attivo
 int lastAnodeIdx = 7;           // Indice dell'ultimo anodo attivo
 u8 leftmostAnodeMask = 0xFE;    // Maschera per l'anodo più a sinistra
 
-const float timerStep = 1000;	// Velocità conteggio sul display
+const float timerStep = 10000;	// Velocità conteggio sul display
 								// (valore piu' basso, conteggio piu' veloce)
 
 
