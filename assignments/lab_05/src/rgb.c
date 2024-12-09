@@ -1,52 +1,3 @@
-/******************************************************************************
-*
-* Copyright (C) 2009 - 2014 Xilinx, Inc.  All rights reserved.
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* Use of the Software is limited solely to applications:
-* (a) running on a Xilinx device, or
-* (b) that interact with a Xilinx device through a bus or interconnect.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-* XILINX  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-* WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
-* OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-* Except as contained in this notice, the name of the Xilinx shall not be used
-* in advertising or otherwise to promote the sale, use or other dealings in
-* this Software without prior written authorization from Xilinx.
-*
-******************************************************************************/
-
-/*
- * helloworld.c: simple test application
- *
- * This application configures UART 16550 to baud rate 9600.
- * PS7 UART (Zynq) is not initialized by this application, since
- * bootrom/bsp configures it to baud rate 115200
- *
- * ------------------------------------------------
- * | UART TYPE   BAUD RATE                        |
- * ------------------------------------------------
- *   uartns550   9600
- *   uartlite    Configurable only in HW design
- *   ps7_uart    115200 (configured by bootrom/bsp)
- */
-
-// TEMP
-
 #include <stdio.h>
 #include "platform.h"
 #include "xil_printf.h"
@@ -54,38 +5,55 @@
 #include "xtmrctr_l.h"
 #include "sleep.h"
 
-// Defines
 
-/* Timers */
-#define TIMER_NUMBER 0 // Use timer 0
-#define CNT_UDT0_MASK 0x00000001
-#define TMR_T0INT_MASK 0x100
-#define TIMER_INT_SRC 0b0100
+/* Macro Timer */
+#define TmrCtrNumber         0
+#define TIMER_INT_SRC        0b0100
+#define TIMER_CTRL_RESET     0x56
+#define CNT_UDT0_MASK 		 0x00000001
+#define TIMER_T0INT_MASK     0x100      // Timer interrupt mask
+#define TIMER_COUNTER_VALUE  250000
+
+/* Indirizzi */
+#define LED_BASE_ADDR     	XPAR_AXI_16LEDS_GPIO_BASEADDR
+#define SWITCH_BASE_ADDR  	XPAR_AXI_SWITHES_GPIO_BASEADDR    // Typo nell'implementazione originale ( switChes -> swithes )
+#define INTC_BASE_ADDR      XPAR_AXI_INTC_0_BASEADDR
+#define TIMER_BASE_ADDR     XPAR_AXI_TIMER_0_BASEADDR
+
+// Interrupt Controller Registers
+#define IAR 0x0C 	// Interrupt Acknowledge Register
+#define IER 0x08 	// Interrupt Enable Register
+#define MER 0x1C	// Master Enable Register
 
 /* LEDs */
 #define LED_RIGHT 0b000111
 #define LED_LEFT 0b111000
 
-// Registers
-volatile int* AXI_RGBLEDS = (int*)0x40030000;
+/* Indirizzo Registro LED */
+volatile int* AXI_RGBLEDS = (int*)XPAR_AXI_RGBLEDS_GPIO_BASEADDR;
 
-// Global Counter and Variables
+/* Variabili Globali */
+const int maxDutyCycle = 256 / 64;	// Intensita' Colore
 int dutyCycleCounter = 0;
 
 int leftRLevel, leftGLevel, leftBLevel;
 int rightRLevel, rightGLevel, rightBLevel;
 
-// Function Declarations
-void timerInit(int counterValue);
+
+/* Prototipi Funzioni */
+void init_interruptCtrl();
+void init_timer(int counterValue);
 void timer0IntAck(void);
 void timerISR(void) __attribute__((interrupt_handler));
+
+
 
 int main() {
     init_platform();
 
-    timerInit(3000);
+    init_interruptCtrl();
+    init_timer(3000);
 
-    microblaze_enable_interrupts(); // Enable interrupts in the processor
 
     leftRLevel = 0;
     leftGLevel = 128;
@@ -95,7 +63,7 @@ int main() {
     rightBLevel = 0;
 
     while (1) {
-        // Main loop
+        // Background
     }
 
     cleanup_platform();
@@ -104,49 +72,55 @@ int main() {
 
 // Interrupt Service Routine
 void timerISR(void) {
-    int interruptSource = *(int*)XPAR_AXI_INTC_0_BASEADDR;
+    int interruptSource = *(int*)INTC_BASE_ADDR;
     if (interruptSource & TIMER_INT_SRC) {
         dutyCycleCounter = (dutyCycleCounter < 512) ? (dutyCycleCounter + 1) : 0;
 
-        if (dutyCycleCounter < 256) {
-            // Set or clear bits for LEDs based on duty cycle
-            *AXI_RGBLEDS = 
-                ((dutyCycleCounter < leftRLevel) ? (*AXI_RGBLEDS | 0b1000) : (*AXI_RGBLEDS & ~0b1000)) |
-                ((dutyCycleCounter < leftGLevel) ? (*AXI_RGBLEDS | 0b10000) : (*AXI_RGBLEDS & ~0b10000)) |
-                ((dutyCycleCounter < leftBLevel) ? (*AXI_RGBLEDS | 0b100000) : (*AXI_RGBLEDS & ~0b100000)) |
-                ((dutyCycleCounter < rightRLevel) ? (*AXI_RGBLEDS | 0b1) : (*AXI_RGBLEDS & ~0b1)) |
-                ((dutyCycleCounter < rightGLevel) ? (*AXI_RGBLEDS | 0b10) : (*AXI_RGBLEDS & ~0b10)) |
-                ((dutyCycleCounter < rightBLevel) ? (*AXI_RGBLEDS | 0b100) : (*AXI_RGBLEDS & ~0b100));
-        } else {
-            *AXI_RGBLEDS = 0; // Turn off LEDs outside the duty cycle range
+        if ( dutyCycleCounter < maxDutyCycle ) {
+            // Alza o abbassa i bit in base al duty cycle
+            *AXI_RGBLEDS =
+                ( ( dutyCycleCounter < leftRLevel ) ? ( *AXI_RGBLEDS | 0b1000 ) : ( *AXI_RGBLEDS & ~0b1000) ) |
+                ( ( dutyCycleCounter < leftGLevel ) ? ( *AXI_RGBLEDS | 0b10000 ) : ( *AXI_RGBLEDS & ~0b10000) ) |
+                ( ( dutyCycleCounter < leftBLevel ) ? ( *AXI_RGBLEDS | 0b100000 ) : ( *AXI_RGBLEDS & ~0b100000) ) |
+                ( ( dutyCycleCounter < rightRLevel ) ? ( *AXI_RGBLEDS | 0b1 ) : ( *AXI_RGBLEDS & ~0b1) ) |
+                ( ( dutyCycleCounter < rightGLevel ) ? ( *AXI_RGBLEDS | 0b10 ) : ( *AXI_RGBLEDS & ~0b10) ) |
+                ( ( dutyCycleCounter < rightBLevel ) ? ( *AXI_RGBLEDS | 0b100 ) : ( *AXI_RGBLEDS & ~0b100) );
+        }
+        else {
+            *AXI_RGBLEDS = 0; // Spegne i LED se sono fuori dal duty cycle
         }
 
-        timer0IntAck(); // Acknowledge timer interrupt
+        timer0IntAck(); // Acknowledge timer
     }
 }
 
-void timerInit(int counterValue) {
-    // Timer Interrupt Configuration
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x1C) = 3; // Enable Master Enable Register (MER)
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x08) = 0b110; // Enable Interrupt Enable Register (IER) for INT[2] and INT[1]
 
-    // Timer Configuration
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, 0x56); // Configure Status Register (SR)
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, counterValue);  // Set counter value
-    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);       // Load counter register
+void init_interruptCtrl() {
+    /* Abilita interrupt */
+    *(int *)(INTC_BASE_ADDR + MER) = 0b11;  // Abilita MER
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110; // Abilita IER
 
-    // Clear LOAD0 bit to allow the counter to proceed
-    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, controlStatus & ~XTC_CSR_LOAD_MASK);
+    microblaze_enable_interrupts();
+}
 
-    // Enable the timer
-    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+void init_timer(int counterValue) {
+    // Configurazione Timer
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, TIMER_CTRL_RESET); 	// Configura Status Register (SR)
+    XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, counterValue);  				// Load register impostato su counterValue
+    XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       				// Inizializza il timer
+
+    // Fa partire il timer resettando il bit di LOAD0
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
+
+    // Attiva il timer
+    XTmrCtr_Enable(TIMER_BASE_ADDR, TmrCtrNumber);
 }
 
 void timer0IntAck(void) {
     // Acknowledge Timer Interrupt
-    *(int*)XPAR_AXI_TIMER_0_BASEADDR |= (1 << 8); // Set 8th bit to acknowledge interrupt
+    *(int*)TIMER_BASE_ADDR |= (1 << 8); // Set 8th bit to acknowledge interrupt
 
-    // Acknowledge Interrupt in IAR (Interrupt Acknowledge Register)
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x0C) = 0b100;
+    // Acknowledge Interrupt IAR (Interrupt Acknowledge Register)
+    *(int*)(INTC_BASE_ADDR + IAR) = 0b100;
 }
