@@ -34,7 +34,7 @@
 volatile int* AXI_RGBLEDS = (int*)XPAR_AXI_RGBLEDS_GPIO_BASEADDR;
 
 // Variabili Globali
-const int maxDutyCycle 		= ( 512 / 2 ) / 64;	// Intensita' Colore (Treshold consigliato 256)
+int 	maxDutyCycle 		= ( 512 / 2 ) / 64;	// Intensita' Colore (Treshold massimo consigliato 256)
 const int cycleSpeed 		= 512 / 2;
 int 	  dutyCycleCounter 	= 0;
 
@@ -61,15 +61,20 @@ int main() {
     init_interruptCtrl();
     init_timer(3000);
 
-    // Impostazione colori
-    leftRLevel = maxDutyCycle;
-    leftGLevel = 0;
-    leftBLevel = 0;
-    rightRLevel = 0;
-    rightGLevel = 0;
-    rightBLevel = maxDutyCycle;
 
-    colorRotationFlag = true;
+    // Intensita' colore
+    maxDutyCycle = 8;
+
+    // Impostazione colori
+    leftRLevel = 128;
+    leftGLevel = 0;
+    leftBLevel = 32;
+    rightRLevel = 0;
+    rightGLevel = 128;
+    rightBLevel = 128;
+
+    // Impostare colorRotationFlag ad 1 implica l'inclusione di updateColors(), che implementa la "rotazione" dei colori dei led
+    // colorRotationFlag = true;
 
     while (1) {
         // Background
@@ -91,9 +96,9 @@ void timerISR(void) {
                 ( ( dutyCycleCounter < leftRLevel  ) ? ( *AXI_RGBLEDS | 0b1000   ) : ( *AXI_RGBLEDS & ~0b1000) ) |
                 ( ( dutyCycleCounter < leftGLevel  ) ? ( *AXI_RGBLEDS | 0b10000  ) : ( *AXI_RGBLEDS & ~0b10000) ) |
                 ( ( dutyCycleCounter < leftBLevel  ) ? ( *AXI_RGBLEDS | 0b100000 ) : ( *AXI_RGBLEDS & ~0b100000) ) |
-                ( ( dutyCycleCounter < rightRLevel ) ? ( *AXI_RGBLEDS | 0b1   ) : ( *AXI_RGBLEDS & ~0b1) ) |
-                ( ( dutyCycleCounter < rightGLevel ) ? ( *AXI_RGBLEDS | 0b10  ) : ( *AXI_RGBLEDS & ~0b10) ) |
-                ( ( dutyCycleCounter < rightBLevel ) ? ( *AXI_RGBLEDS | 0b100 ) : ( *AXI_RGBLEDS & ~0b100) );
+                ( ( dutyCycleCounter < rightRLevel ) ? ( *AXI_RGBLEDS | 0b1   )    : ( *AXI_RGBLEDS & ~0b1) ) |
+                ( ( dutyCycleCounter < rightGLevel ) ? ( *AXI_RGBLEDS | 0b10  )    : ( *AXI_RGBLEDS & ~0b10) ) |
+                ( ( dutyCycleCounter < rightBLevel ) ? ( *AXI_RGBLEDS | 0b100 )    : ( *AXI_RGBLEDS & ~0b100) );
         }
         else {
             *AXI_RGBLEDS = 0; // Spegne i LED se sono fuori dal duty cycle
@@ -140,44 +145,44 @@ void timer0IntAck(void) {
 }
 
 void updateColors(void) {
-
+	const int stepSpeed = ( 512 / 2 ) / 64;
     // LED Sinistro
-    if (leftRLevel == maxDutyCycle && leftGLevel < maxDutyCycle && leftBLevel == 0) {
+    if ( leftRLevel >= stepSpeed && leftGLevel < stepSpeed && leftBLevel == 0) {
         leftGLevel += colorStep;
     }
-    else if ( leftGLevel == maxDutyCycle && leftRLevel > 0 && leftBLevel == 0 ) {
+    else if ( leftGLevel >= stepSpeed && leftRLevel > 0 && leftBLevel == 0 ) {
         leftRLevel -= colorStep;
     }
-    else if ( leftGLevel == maxDutyCycle && leftBLevel < maxDutyCycle ) {
+    else if ( leftGLevel >= stepSpeed && leftBLevel < maxDutyCycle ) {
         leftBLevel += colorStep;
     }
-    else if ( leftBLevel == maxDutyCycle && leftGLevel > 0 ) {
+    else if ( leftBLevel >= stepSpeed && leftGLevel > 0 ) {
         leftGLevel -= colorStep;
     }
-    else if ( leftBLevel == maxDutyCycle && leftRLevel < maxDutyCycle ) {
+    else if ( leftBLevel >= stepSpeed && leftRLevel < stepSpeed ) {
         leftRLevel += colorStep;
     }
-    else if ( leftRLevel == maxDutyCycle && leftBLevel > 0) {
+    else if ( leftRLevel >= stepSpeed && leftBLevel > 0) {
         leftBLevel -= colorStep;
     }
 
     // LED Destro
-    if (rightRLevel == maxDutyCycle && rightGLevel < maxDutyCycle && rightBLevel == 0) {
+    if (rightRLevel >= stepSpeed && rightGLevel < stepSpeed && rightBLevel == 0) {
         rightGLevel += colorStep;
     }
-    else if ( rightGLevel == maxDutyCycle && rightRLevel > 0 && rightBLevel == 0) {
+    else if ( rightGLevel >= stepSpeed && rightRLevel > 0 && rightBLevel == 0) {
         rightRLevel -= colorStep;
     }
-    else if (rightGLevel == maxDutyCycle && rightBLevel < maxDutyCycle ) {
+    else if (rightGLevel >= stepSpeed && rightBLevel < stepSpeed ) {
         rightBLevel += colorStep;
     }
-    else if (rightBLevel == maxDutyCycle && rightGLevel > 0 ) {
+    else if (rightBLevel >= stepSpeed && rightGLevel > 0 ) {
         rightGLevel -= colorStep;
     }
-    else if (rightBLevel == maxDutyCycle && rightRLevel < maxDutyCycle ) {
+    else if (rightBLevel >= stepSpeed && rightRLevel < stepSpeed ) {
         rightRLevel += colorStep;
     }
-    else if (rightRLevel == maxDutyCycle && rightBLevel > 0) {
+    else if (rightRLevel >= stepSpeed && rightBLevel > 0) {
         rightBLevel -= colorStep;
     }
 }
