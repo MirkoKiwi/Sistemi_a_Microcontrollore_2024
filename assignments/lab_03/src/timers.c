@@ -149,11 +149,7 @@ init_peripheralInterrupt(int baseAddress) {
 
 void init_timer(int counterValue) {
     /* Configurazione TIMER */
-    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, 0x56); // Imposta il timer control status register
-    																  // Il valore 0x56 ci permette di attivare rispettivamente il bit
-    																  // 5, che permette di caricare il valore dal registro di carico TLR1 nel registro del counter TCR1
-    																  // il bit 3 che permette al timer di sincronizzarsi con segnali esterni (ISR in questo caso)
-    																  // il bit 1 permette al timer di conteggiare "verso il basso"
+    XTmrCtr_SetControlStatusReg(TIMER_BASE_ADDR, TmrCtrNumber, 0x56); // Imposta il timer control status register, 0x56 permette di alzare una serie di bit di interesse nel Control/Status register
 
     XTmrCtr_SetLoadReg(TIMER_BASE_ADDR, TmrCtrNumber, counterValue);  // Imposta il load-register ad 1 secondo
     XTmrCtr_LoadTimerCounterReg(TIMER_BASE_ADDR, TmrCtrNumber);       // Initializza il timer, facendolo iniziare a contare
