@@ -45,19 +45,25 @@
 
 #define U32_MOST_SIGNIFICANT_BIT 0x80000000
 
+// Interrupt Controller Registers
+#define IAR 0x0C 	// Interrupt Acknowledge Register
+#define IER 0x08 	// Interrupt Enable Register
+#define MER 0x1C	// Master Enable Register
+
 // LEDS
-#define LEFT_BLINKER_MASK 0xF800
-#define RIGHT_BLINKER_MASK 0x1F
+#define LEFT_BLINKER_MASK   0xF800
+#define RIGHT_BLINKER_MASK  0x1F
 
 // TIMERS
-#define TIMER_NUMBER 0 // Timer 0
-#define CNT_UDT0_MASK 0x00000001
-#define TMR_T0INT_MASK 0x100
-#define TIMER_INT_SRC 0b0100
+#define TmrCtrNumber        0 // Timer 0
+#define TIMER_CTRL_RESET    0x56
+#define CNT_UDT0_MASK       0x00000001
+#define TIMER_T0INT_MASK    0x100
+#define TIMER_INT_SRC       0b0100
 
 /* Registers */
-volatile int* buttonsReg = (int*)XPAR_AXI_BUTTONS_GPIO_BASEADDR;
-volatile int* leds16Reg = (int*)XPAR_AXI_16LEDS_GPIO_BASEADDR;
+volatile int *buttonsReg = (int *)XPAR_AXI_BUTTONS_GPIO_BASEADDR;
+volatile int *leds16Reg = (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
 
 /* Global variables */
 int isrSignal;
@@ -79,7 +85,7 @@ int fsmDebounce(int buttons);
 void fsmBlinkers(int buttonsNb);
 
 /* Timer library */
-void timerInit(int valueCounter, int noEnable);
+void init_timer(int valueCounter, int noEnable);
 void timer0IntAck(void);
 void timerResetCounter(int value);
 void timerEnable(void);
@@ -87,17 +93,18 @@ void timerEnable(void);
 /* Interrupt Service Routine */
 void blinkISR(void) __attribute__((interrupt_handler));
 
+
+
 int main() {
     init_platform();
 
-    /* Enable Microblaze interrupts */
-    microblaze_enable_interrupts();
+    init_interruptCtrl();
 
     /* Initialize variables */
     *leds16Reg = 0x00;
     int buttonsNb = 0;
 
-    timerInit(timerCounter, 1); // Timer initialized but not started
+    init_timer(timerCounter, 1); // Timer initialized but not started
 
     while (1) {
         buttonsNb = fsmDebounce(*buttonsReg);
@@ -107,6 +114,8 @@ int main() {
     cleanup_platform();
     return 0;
 }
+
+
 
 /* FSM (Finite State Machines) functions */
 int fsmDebounce(int buttons) {
@@ -148,17 +157,19 @@ void fsmBlinkers(int buttonsNb) {
             resetFlag = 1;
             returnIdle = 0;
 
-            if (leftButton) {
+            if ( leftButton ) {
                 timerEnable();
                 resetFlag = 0;
                 flagContinue = 1;
                 currentState = B_L_ON;
-            } else if (rightButton) {
+            } 
+            else if ( rightButton ) {
                 timerEnable();
                 resetFlag = 0;
                 flagContinue = 1;
                 currentState = B_R_ON;
-            } else if (hazardButton) {
+            } 
+            else if ( hazardButton ) {
                 timerEnable();
                 resetFlag = 0;
                 flagContinue = 1;
@@ -169,11 +180,11 @@ void fsmBlinkers(int buttonsNb) {
         case B_L_ON:
             flagContinue = 1;
 
-            if (leftButton) {
+            if ( leftButton ) {
                 returnIdle = 1;
             }
 
-            if (!leftButton && isrSignal > 5) {
+            if ( !leftButton && isrSignal > 5 ) {
                 currentState = B_L_OFF;
                 resetFlag = 1;
                 flagContinue = 0;
@@ -181,20 +192,23 @@ void fsmBlinkers(int buttonsNb) {
                 resetFlag = 0;
             }
 
-            ledOutput |= (1 << isrSignal) << 10;
+            ledOutput |= ( 1 << isrSignal ) << 10;
             break;
 
         case B_L_OFF:
             flagContinue = 1;
             ledOutput = 0;
 
-            if (leftButton || returnIdle) {
+            if ( leftButton || returnIdle ) {
                 currentState = B_IDLE;
-            } else if (!leftButton && isrSignal > 2) {
+            } 
+            else if ( !leftButton && isrSignal > 2 ) {
                 currentState = B_L_ON;
                 resetFlag = 1;
                 flagContinue = 0;
+                
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
             break;
@@ -202,32 +216,37 @@ void fsmBlinkers(int buttonsNb) {
         case B_R_ON:
             flagContinue = 1;
 
-            if (rightButton) {
+            if ( rightButton ) {
                 returnIdle = 1;
             }
 
-            if (!rightButton && isrSignal > 5) {
+            if ( !rightButton && isrSignal > 5 ) {
                 currentState = B_R_OFF;
                 resetFlag = 1;
                 flagContinue = 0;
+                
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
 
-            ledOutput |= (U32_MOST_SIGNIFICANT_BIT >> isrSignal) >> 26;
+            ledOutput |= ( U32_MOST_SIGNIFICANT_BIT >> isrSignal ) >> 26;
             break;
 
         case B_R_OFF:
             flagContinue = 1;
             ledOutput = 0;
 
-            if (rightButton || returnIdle) {
+            if ( rightButton || returnIdle ) {
                 currentState = B_IDLE;
-            } else if (!rightButton && isrSignal > 2) {
+            } 
+            else if ( !rightButton && isrSignal > 2 ) {
                 currentState = B_R_ON;
                 resetFlag = 1;
                 flagContinue = 0;
+                
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
             break;
@@ -235,32 +254,37 @@ void fsmBlinkers(int buttonsNb) {
         case B_H_ON:
             flagContinue = 1;
 
-            if (hazardButton) {
+            if ( hazardButton ) {
                 returnIdle = 1;
             }
 
-            if (!hazardButton && isrSignal > 5) {
+            if ( !hazardButton && isrSignal > 5 ) {
                 currentState = B_H_OFF;
                 resetFlag = 1;
                 flagContinue = 0;
+                
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
 
-            ledOutput |= ((1 << isrSignal) << 10) | ((U32_MOST_SIGNIFICANT_BIT >> isrSignal) >> 26);
+            ledOutput |= ( ( 1 << isrSignal ) << 10 ) | ( ( U32_MOST_SIGNIFICANT_BIT >> isrSignal ) >> 26 );
             break;
 
         case B_H_OFF:
             flagContinue = 1;
             ledOutput = 0;
 
-            if (hazardButton || returnIdle) {
+            if ( hazardButton || returnIdle ) {
                 currentState = B_IDLE;
-            } else if (!hazardButton && isrSignal > 2) {
+            } 
+            else if ( !hazardButton && isrSignal > 2 ) {
                 currentState = B_H_ON;
                 resetFlag = 1;
                 flagContinue = 0;
+                
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
             break;
@@ -269,49 +293,59 @@ void fsmBlinkers(int buttonsNb) {
     *leds16Reg = ledOutput;
 }
 
-/* Timer library */
-void timerInit(int valueCounter, int noEnable) {
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x1C) = 3;
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x08) = 0b110;
+void init_interruptCtrl() {
+    // Abilita interrupt
+    *(int *)(XPAR_AXI_INTC_0_BASEADDR + MER) = 0b11;  // Abilita MER
+    *(int *)(XPAR_AXI_INTC_0_BASEADDR + IER) = 0b110; // Abilita IER
 
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, 0x56);
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, valueCounter);
-    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+    // Abilita interrupt dìnel processore
+    microblaze_enable_interrupts();
+}
 
-    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, controlStatus & (~XTC_CSR_LOAD_MASK));
+void init_timer(int counterValue) {
+    // Configurazione Timer
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, TIMER_CTRL_RESET); 	// Configura Status Register (SR)
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, counterValue);  				// Load register impostato su counterValue
+    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);       				// Inizializza il timer
 
-    if (!noEnable) {
-        XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    }
+    // Fa partire il timer resettando il bit di LOAD0
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
+
+    // Attiva il timer
+    timerEnable();
 }
 
 void timer0IntAck(void) {
-    *(int*)XPAR_AXI_TIMER_0_BASEADDR = (1 << 8) | (*(int*)XPAR_AXI_TIMER_0_BASEADDR);
-    *(int*)(XPAR_AXI_INTC_0_BASEADDR + 0x0C) = 0b100;
+    // Acknowledge interrupt del timer
+    *(int *)XPAR_AXI_TIMER_0_BASEADDR |= TIMER_T0INT_MASK;
+
+    // Acknowledge Interrupt IAR
+    *(int *)(XPAR_AXI_TIMER_0_BASEADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
 }
 
 void timerResetCounter(int value) {
-    XTmrCtr_Disable(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, value);
-    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+    XTmrCtr_Disable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, value);
+    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
-    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER, controlStatus & (~XTC_CSR_LOAD_MASK));
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & (~XTC_CSR_LOAD_MASK));
 }
 
 void timerEnable(void) {
-    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TIMER_NUMBER);
+    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
 /* Interrupt Service Routine */
 void blinkISR(void) {
     int interruptSource = *(int*)XPAR_AXI_INTC_0_BASEADDR;
 
-    if (interruptSource & TIMER_INT_SRC) {
-        if (resetFlag) {
+    if ( interruptSource & TIMER_INT_SRC ) {
+        if ( resetFlag ) {
             isrSignal = 0;
-        } else if (flagContinue) {
+        } 
+        else if ( flagContinue ) {
             isrSignal++;
         }
 
