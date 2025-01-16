@@ -1,40 +1,9 @@
-/******************************************************************************
-*
-* Copyright (C) 2009 - 2014 Xilinx, Inc.  All rights reserved.
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* Use of the Software is limited solely to applications:
-* (a) running on a Xilinx device, or
-* (b) that interact with a Xilinx device through a bus or interconnect.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-* XILINX BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-* ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-* WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*
-* Except as contained in this notice, the name of the Xilinx shall not be used
-* in advertising or otherwise to promote the sale, use or other dealings in
-* this Software without prior written authorization from Xilinx.
-*
-******************************************************************************/
-
 #include <stdio.h>
 #include "platform.h"
 #include "xparameters.h"
 #include "xtmrctr_l.h"
 
-/* Defines */
+
 
 // MASKS
 #define BUTTON_MASK_0 0b00001
@@ -61,18 +30,18 @@
 #define TIMER_T0INT_MASK    0x100
 #define TIMER_INT_SRC       0b0100
 
-/* Registers */
-volatile int *buttonsReg = (int *)XPAR_AXI_BUTTONS_GPIO_BASEADDR;
-volatile int *leds16Reg = (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
+// Registri
+volatile int *buttonsReg =  (int *)XPAR_AXI_BUTTONS_GPIO_BASEADDR;
+volatile int *leds16Reg =   (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
 
-/* Global variables */
+// Variabili Globali
 int isrSignal;
 int timerCounter = 7500000;
 int flagContinue = 0;
 int resetFlag = 1;
 int returnIdle = 0;
 
-/* Type definitions */
+// Type defs 
 typedef enum { PRESSED, IDLE } debounceState_t;
 typedef enum { 
     B_IDLE, B_L_ON, B_L_OFF, 
@@ -80,17 +49,17 @@ typedef enum {
     B_H_ON, B_H_OFF
 } blinkersState_t;
 
-/* FSM functions */
+// Funzioni FSM
 int fsmDebounce(int buttons);
 void fsmBlinkers(int buttonsNb);
 
-/* Timer library */
+// Funzioni Timer
 void init_timer(int valueCounter, int noEnable);
 void timer0IntAck(void);
 void timerResetCounter(int value);
 void timerEnable(void);
 
-/* Interrupt Service Routine */
+// Interrupt Service Routine 
 void blinkISR(void) __attribute__((interrupt_handler));
 
 
@@ -104,7 +73,7 @@ int main() {
     *leds16Reg = 0x00;
     int buttonsNb = 0;
 
-    init_timer(timerCounter, 1); // Timer initialized but not started
+    init_timer(timerCounter);
 
     while (1) {
         buttonsNb = fsmDebounce(*buttonsReg);
@@ -117,7 +86,7 @@ int main() {
 
 
 
-/* FSM (Finite State Machines) functions */
+// FSM (Finite State Machines) function
 int fsmDebounce(int buttons) {
     static int debouncedButtons;
     static debounceState_t currentState = IDLE;
@@ -125,14 +94,14 @@ int fsmDebounce(int buttons) {
     switch (currentState) {
         case IDLE:
             debouncedButtons = buttons;
-            if (buttons != 0) {
+            if ( buttons != 0 ) {
                 currentState = PRESSED;
             }
             break;
 
         case PRESSED:
             debouncedButtons = 0;
-            if (buttons == 0) {
+            if ( buttons == 0 ) {
                 currentState = IDLE;
             }
             break;
@@ -150,6 +119,7 @@ void fsmBlinkers(int buttonsNb) {
     int hazardButton = buttonsNb & BUTTON_MASK_4;
 
     switch (currentState) {
+        // Idle
         case B_IDLE:
             timerResetCounter(timerCounter);
             flagContinue = 0;
@@ -177,6 +147,7 @@ void fsmBlinkers(int buttonsNb) {
             }
             break;
 
+        // Left
         case B_L_ON:
             flagContinue = 1;
 
@@ -188,7 +159,9 @@ void fsmBlinkers(int buttonsNb) {
                 currentState = B_L_OFF;
                 resetFlag = 1;
                 flagContinue = 0;
+
                 while (isrSignal);
+                
                 resetFlag = 0;
             }
 
@@ -213,6 +186,7 @@ void fsmBlinkers(int buttonsNb) {
             }
             break;
 
+        // Right
         case B_R_ON:
             flagContinue = 1;
 
@@ -271,6 +245,7 @@ void fsmBlinkers(int buttonsNb) {
             ledOutput |= ( ( 1 << isrSignal ) << 10 ) | ( ( U32_MOST_SIGNIFICANT_BIT >> isrSignal ) >> 26 );
             break;
 
+        // Hazard
         case B_H_OFF:
             flagContinue = 1;
             ledOutput = 0;
@@ -321,7 +296,7 @@ void timer0IntAck(void) {
     *(int *)XPAR_AXI_TIMER_0_BASEADDR |= TIMER_T0INT_MASK;
 
     // Acknowledge Interrupt IAR
-    *(int *)(XPAR_AXI_TIMER_0_BASEADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
+    *(int *)(XPAR_AXI_INTC_0_BASEADDR + IAR) = TIMER_INT_SRC;	// Acknowledge Global Interrupt
 }
 
 void timerResetCounter(int value) {
@@ -339,7 +314,7 @@ void timerEnable(void) {
 
 /* Interrupt Service Routine */
 void blinkISR(void) {
-    int interruptSource = *(int*)XPAR_AXI_INTC_0_BASEADDR;
+    int interruptSource = *(int *)XPAR_AXI_INTC_0_BASEADDR;
 
     if ( interruptSource & TIMER_INT_SRC ) {
         if ( resetFlag ) {
