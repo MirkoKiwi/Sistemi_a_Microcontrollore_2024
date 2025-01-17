@@ -36,8 +36,8 @@ volatile int *leds16Reg =   (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
 
 // Variabili Globali
 int isrSignal;
-int timerCounter = 7500000;
-int flagContinue = 0;
+int timerCounter = 6000000;
+int continueFlag = 0;
 int resetFlag = 1;
 int returnIdle = 0;
 
@@ -122,7 +122,7 @@ void fsmBlinkers(int buttonsNb) {
         // Idle
         case B_IDLE:
             timerResetCounter(timerCounter);
-            flagContinue = 0;
+            continueFlag = 0;
             ledOutput = 0;
             resetFlag = 1;
             returnIdle = 0;
@@ -130,26 +130,26 @@ void fsmBlinkers(int buttonsNb) {
             if ( leftButton ) {
                 timerEnable();
                 resetFlag = 0;
-                flagContinue = 1;
+                continueFlag = 1;
                 currentState = B_L_ON;
             } 
             else if ( rightButton ) {
                 timerEnable();
                 resetFlag = 0;
-                flagContinue = 1;
+                continueFlag = 1;
                 currentState = B_R_ON;
             } 
             else if ( hazardButton ) {
                 timerEnable();
                 resetFlag = 0;
-                flagContinue = 1;
+                continueFlag = 1;
                 currentState = B_H_ON;
             }
             break;
 
         // Left
         case B_L_ON:
-            flagContinue = 1;
+            continueFlag = 1;
 
             if ( leftButton ) {
                 returnIdle = 1;
@@ -158,7 +158,7 @@ void fsmBlinkers(int buttonsNb) {
             if ( !leftButton && isrSignal > 5 ) {
                 currentState = B_L_OFF;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
 
                 while (isrSignal);
                 
@@ -169,7 +169,7 @@ void fsmBlinkers(int buttonsNb) {
             break;
 
         case B_L_OFF:
-            flagContinue = 1;
+            continueFlag = 1;
             ledOutput = 0;
 
             if ( leftButton || returnIdle ) {
@@ -178,7 +178,7 @@ void fsmBlinkers(int buttonsNb) {
             else if ( !leftButton && isrSignal > 2 ) {
                 currentState = B_L_ON;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
                 
                 while (isrSignal);
                 
@@ -188,7 +188,7 @@ void fsmBlinkers(int buttonsNb) {
 
         // Right
         case B_R_ON:
-            flagContinue = 1;
+            continueFlag = 1;
 
             if ( rightButton ) {
                 returnIdle = 1;
@@ -197,7 +197,7 @@ void fsmBlinkers(int buttonsNb) {
             if ( !rightButton && isrSignal > 5 ) {
                 currentState = B_R_OFF;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
                 
                 while (isrSignal);
                 
@@ -208,7 +208,7 @@ void fsmBlinkers(int buttonsNb) {
             break;
 
         case B_R_OFF:
-            flagContinue = 1;
+            continueFlag = 1;
             ledOutput = 0;
 
             if ( rightButton || returnIdle ) {
@@ -217,7 +217,7 @@ void fsmBlinkers(int buttonsNb) {
             else if ( !rightButton && isrSignal > 2 ) {
                 currentState = B_R_ON;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
                 
                 while (isrSignal);
                 
@@ -227,7 +227,7 @@ void fsmBlinkers(int buttonsNb) {
 
         // Hazard
         case B_H_ON:
-            flagContinue = 1;
+            continueFlag = 1;
 
             if ( hazardButton ) {
                 returnIdle = 1;
@@ -236,7 +236,7 @@ void fsmBlinkers(int buttonsNb) {
             if ( !hazardButton && isrSignal > 5 ) {
                 currentState = B_H_OFF;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
                 
                 while (isrSignal);
                 
@@ -247,7 +247,7 @@ void fsmBlinkers(int buttonsNb) {
             break;
 
         case B_H_OFF:
-            flagContinue = 1;
+            continueFlag = 1;
             ledOutput = 0;
 
             if ( hazardButton || returnIdle ) {
@@ -256,7 +256,7 @@ void fsmBlinkers(int buttonsNb) {
             else if ( !hazardButton && isrSignal > 2 ) {
                 currentState = B_H_ON;
                 resetFlag = 1;
-                flagContinue = 0;
+                continueFlag = 0;
                 
                 while (isrSignal);
                 
@@ -315,7 +315,7 @@ void blinkISR(void) {
         if ( resetFlag ) {
             isrSignal = 0;
         } 
-        else if ( flagContinue ) {
+        else if ( continueFlag ) {
             isrSignal++;
         }
 
