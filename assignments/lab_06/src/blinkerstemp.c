@@ -4,6 +4,7 @@
 #include "xtmrctr_l.h"
 
 
+
 // MASKS
 #define BUTTON_MASK_0 0b00001
 #define BUTTON_MASK_1 0b00010
@@ -48,7 +49,7 @@ typedef enum {
     B_H_ON, B_H_OFF
 } blinkersState_t;
 
-// Funzioni FSM
+// Funzioni Macchina a Stati
 int fsmDebounce(int buttons);
 void fsmBlinkers(int buttonsNb);
 
@@ -68,7 +69,7 @@ int main() {
 
     microblaze_enable_interrupts();
 
-    /* Initialize variables */
+    //
     *leds16Reg = 0x00;
     int buttonsNb = 0;
 
@@ -85,7 +86,7 @@ int main() {
 
 
 
-// FSM (Finite State Machines) function
+// Funzioni Macchina a Stati
 int fsmDebounce(int buttons) {
     static int debouncedButtons;
     static debounceState_t currentState = IDLE;
@@ -224,6 +225,7 @@ void fsmBlinkers(int buttonsNb) {
             }
             break;
 
+        // Hazard
         case B_H_ON:
             flagContinue = 1;
 
@@ -244,7 +246,6 @@ void fsmBlinkers(int buttonsNb) {
             ledOutput |= ( ( 1 << isrSignal ) << 10 ) | ( ( U32_MOST_SIGNIFICANT_BIT >> isrSignal ) >> 26 );
             break;
 
-        // Hazard
         case B_H_OFF:
             flagContinue = 1;
             ledOutput = 0;
