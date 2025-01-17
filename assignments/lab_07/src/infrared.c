@@ -20,6 +20,7 @@ XTmrCtr TimerInstance;
 void CaptureIRSignal();
 void DecodeNECProtocol(int signal_duration);
 void DecodeAndPrintNECData(unsigned long long data);
+void CaptureRawSignal();    // Debug
 
 // Variabili globali
 static int previous_state = 0;
@@ -45,7 +46,8 @@ int main() {
     XTmrCtr_Start(&TimerInstance, TIMER_COUNTER_0);
 
     while (1) {
-        CaptureIRSignal();
+        //CaptureIRSignal();
+        void CaptureRawSignal();    // Debug
     }
 
     cleanup_platform();
@@ -139,5 +141,24 @@ void DecodeAndPrintNECData(unsigned long long data) {
         xil_printf("  Validazione: OK\n");
     } else {
         xil_printf("  Validazione: ERRORE\n");
+    }
+}
+
+// Debug
+void CaptureRawSignal() {
+    static int last_timer_value = 0;
+    int current_state = *AXI_GPIO_IR;
+    int current_timer_value = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
+
+    if (current_state != previous_state) {
+        int signal_duration = (current_timer_value >= last_timer_value) ?
+                              (current_timer_value - last_timer_value) :
+                              ((0xFFFFFFFF - last_timer_value) + current_timer_value + 1);
+
+        int duration_us = signal_duration / (TIMER_CLOCK_FREQ_HZ / 1000000);
+        xil_printf("Stato: %d -> %d, Durata: %d us\n", previous_state, current_state, duration_us);
+
+        previous_state = current_state;
+        last_timer_value = current_timer_value;
     }
 }
