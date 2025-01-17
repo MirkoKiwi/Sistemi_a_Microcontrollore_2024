@@ -36,7 +36,7 @@ volatile int *leds16Reg =   (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
 
 // Variabili Globali
 int isrSignal;
-int timerCounter = 7500000;
+int timerCounter = 6000000;
 int flagContinue = 0;
 int resetFlag = 1;
 int returnIdle = 0;
