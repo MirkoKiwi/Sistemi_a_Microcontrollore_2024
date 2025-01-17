@@ -5,8 +5,11 @@
 #include "xtmrctr.h"
 
 // Definitions
-#define gpioIrBaseAddr XPAR_GPIO_0_BASEADDR // Base address of GPIO
+#define gpioIRBaseAddr XPAR_GPIO_0_BASEADDR // Base address of GPIO
 #define timerDeviceId XPAR_TMRCTR_0_DEVICE_ID
+
+
+#define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000))
 
 // Function Prototypes
 void decodeNecProtocol(u32 *packet);
@@ -49,14 +52,14 @@ void decodeNecProtocol(u32 *packet) {
     // Wait for start pulse
     timing = measurePulseDuration();
     xil_printf("Start Pulse High: %lu us\n", timing);
-    if (timing < 8000 || timing > 10000) {
+    if ( timing < US_TO_TICKS(8000) || timing > US_TO_TICKS(10000) ) {
         xil_printf("Invalid Start Pulse High\n");
         return;
     }
 
     timing = measurePulseDuration();
     xil_printf("Start Pulse Low: %lu us\n", timing);
-    if (timing < 3500 || timing > 5500) {
+    if ( timing < US_TO_TICKS(3500) || timing > US_TO_TICKS(5500) ) {
         xil_printf("Invalid Start Pulse Low\n");
         return;
     }
@@ -64,21 +67,23 @@ void decodeNecProtocol(u32 *packet) {
     xil_printf("Decoding 32-bit Packet...\n");
 
     // Decode 32 bits
-    for (int i = 0; i < 32; i++) {
+    for ( int i = 0; i < 32; i++ ) {
         timing = measurePulseDuration();
-        if (timing < 500 || timing > 700) {
+        if ( timing < US_TO_TICKS(500) || timing > US_TO_TICKS(700) ) {
             xil_printf("Invalid Pulse for Bit %d\n", i);
             return;
         }
 
         timing = measurePulseDuration();
-        if (timing >= 1400 && timing <= 1900) {
+        if ( timing >= US_TO_TICKS(1400) && timing <= US_TO_TICKS(1900) ) {
             necData = (necData << 1) | 1;
             xil_printf("Bit %d: 1\n", i);
-        } else if (timing >= 400 && timing <= 800) {
+        } 
+        else if ( timing >= US_TO_TICKS(400) && timing <= US_TO_TICKS(800) ) {
             necData = (necData << 1);
             xil_printf("Bit %d: 0\n", i);
-        } else {
+        } 
+        else {
             xil_printf("Invalid Gap for Bit %d\n", i);
             return;
         }
@@ -91,7 +96,7 @@ void decodeNecProtocol(u32 *packet) {
     u8 command = (necData >> 8) & 0xFF;
     u8 invCommand = necData & 0xFF;
 
-    if ((address ^ invAddress) != 0xFF || (command ^ invCommand) != 0xFF) {
+    if ( ( address ^ invAddress ) != 0xFF || ( command ^ invCommand ) != 0xFF ) {
         xil_printf("Data Integrity Check Failed\n");
         return;
     }
@@ -168,3 +173,4 @@ u32 readGPIOPin(void) {
     // Read the GPIO input pin (bit 0 of GPIO base address)
     return *((volatile u32 *)gpioIRBaseAddr) & 0x1;
 }
+
