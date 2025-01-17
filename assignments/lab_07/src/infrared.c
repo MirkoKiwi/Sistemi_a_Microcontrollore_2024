@@ -4,173 +4,147 @@
 #include "xparameters.h"
 #include "xtmrctr.h"
 
-// Definitions
-#define gpioIRBaseAddr XPAR_GPIO_0_BASEADDR // Base address of GPIO
-#define timerDeviceId XPAR_TMRCTR_0_DEVICE_ID
+// Macro per il timer
+#define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
+#define TIMER_COUNTER_0        0
+#define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
+#define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
 
+// Dichiarazione del GPIO come puntatore volatile
+volatile int* AXI_GPIO_IR = (int*)XPAR_GPIO_IR_BASEADDR;
 
-#define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000))
+// Timer
+XTmrCtr TimerInstance;
 
-// Function Prototypes
-void decodeNecProtocol(u32 *packet);
-u32 measurePulseDuration(void);
-u32 readGPIOPin(void);
+// Prototipi delle funzioni
+void CaptureIRSignal();
+void DecodeNECProtocol(int signal_duration);
+void PrintSequence(unsigned long long data, int durations[]);
+void DecodeAndPrintNECData(unsigned long long data);
 
-// Global Variables
-XTmrCtr timerInstance;
+// Variabili per la decodifica
+static int previous_state = 0;
+static int signal_duration = 0;
+static int bit_count = 0;
+static unsigned long long data = 0;
+static int capturing = 0;
+static int bit_durations[32] = {0};
+static int start_sequence = 0;
 
 int main() {
     init_platform();
 
-    // Initialize Timer
-    XTmrCtr_Initialize(&timerInstance, timerDeviceId);
-    XTmrCtr_SetResetValue(&timerInstance, 0, 0x0);
-    XTmrCtr_Start(&timerInstance, 0);
+    xil_printf("Hello World!\n");
 
-    u32 necPacket = 0;
+    // Inizializza il timer
+    if (XTmrCtr_Initialize(&TimerInstance, TIMER_DEVICE_ID) != XST_SUCCESS) {
+        xil_printf("Errore inizializzazione timer\n");
+        return -1;
+    }
+
+    // Configura il timer senza auto-reload
+    XTmrCtr_SetOptions(&TimerInstance, TIMER_COUNTER_0, 0);
+    XTmrCtr_Reset(&TimerInstance, TIMER_COUNTER_0);
+    XTmrCtr_Start(&TimerInstance, TIMER_COUNTER_0);
 
     while (1) {
-        // Decode NEC protocol
-        decodeNecProtocol(&necPacket);
-
-        // Display Address and Command
-        u8 address = ( necPacket >> 24 ) & 0xFF;
-        u8 command = ( necPacket >> 16 ) & 0xFF;
-        xil_printf("Address: 0x%02X, Command: 0x%02X\n", address, command);
+        CaptureIRSignal();
     }
 
     cleanup_platform();
     return 0;
 }
 
-void decodeNecProtocol(u32 *packet) {
-    u32 timing;
-    u32 necData = 0;
+// Funzione per catturare il segnale IR
+void CaptureIRSignal() {
+    static int last_timer_value = 0;
 
-    xil_printf("Waiting for Start Pulse...\n");
+    int current_state = *AXI_GPIO_IR;
+    int current_timer_value = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
 
-    // Wait for start pulse
-    timing = measurePulseDuration();
-    xil_printf("Start Pulse High: %lu us\n", timing);
-    if ( timing < US_TO_TICKS(8000) || timing > US_TO_TICKS(10000) ) {
-        xil_printf("Invalid Start Pulse High\n");
-        return;
-    }
-
-    timing = measurePulseDuration();
-    xil_printf("Start Pulse Low: %lu us\n", timing);
-    if ( timing < US_TO_TICKS(3500) || timing > US_TO_TICKS(5500) ) {
-        xil_printf("Invalid Start Pulse Low\n");
-        return;
-    }
-
-    xil_printf("Decoding 32-bit Packet...\n");
-
-    // Decode 32 bits
-    for ( int i = 0; i < 32; i++ ) {
-        timing = measurePulseDuration();
-        if ( timing < US_TO_TICKS(500) || timing > US_TO_TICKS(700) ) {
-            xil_printf("Invalid Pulse for Bit %d\n", i);
-            return;
+    if (current_state != previous_state) {
+        // Calcola la durata basandoti sulla differenza
+        if (current_timer_value >= last_timer_value) {
+            signal_duration = current_timer_value - last_timer_value;
+        } else {
+            signal_duration = (0xFFFFFFFF - last_timer_value) + current_timer_value + 1;
         }
 
-        timing = measurePulseDuration();
-        if ( timing >= US_TO_TICKS(1400) && timing <= US_TO_TICKS(1900) ) {
-            necData = (necData << 1) | 1;
-            xil_printf("Bit %d: 1\n", i);
-        } 
-        else if ( timing >= US_TO_TICKS(400) && timing <= US_TO_TICKS(800) ) {
-            necData = (necData << 1);
-            xil_printf("Bit %d: 0\n", i);
-        } 
+        if (!capturing && signal_duration > US_TO_TICKS(9000) && signal_duration < US_TO_TICKS(9500)) {
+            // Impulso di start rilevato (9 ms)
+            start_sequence++;
+        }
+        else if (start_sequence == 1 && signal_duration > US_TO_TICKS(4500) && signal_duration < US_TO_TICKS(5000)) {
+            // Secondo impulso di start rilevato (4.5 ms)
+            capturing = 1;
+            bit_count = 0;
+            data = 0;
+            start_sequence = 0;
+        }
         else {
-            xil_printf("Invalid Gap for Bit %d\n", i);
-            return;
-        }
-    }
-
-    xil_printf("Decoded Packet: 0x%08X\n", necData);
-
-    u8 address = (necData >> 24) & 0xFF;
-    u8 invAddress = (necData >> 16) & 0xFF;
-    u8 command = (necData >> 8) & 0xFF;
-    u8 invCommand = necData & 0xFF;
-
-    if ( ( address ^ invAddress ) != 0xFF || ( command ^ invCommand ) != 0xFF ) {
-        xil_printf("Data Integrity Check Failed\n");
-        return;
-    }
-
-    xil_printf("Address: 0x%02X, Command: 0x%02X\n", address, command);
-    *packet = necData;
-}
-
-/*
-void decodeNecProtocol(u32 *packet) {
-    u32 timing;
-    u32 necData = 0;
-
-    // Wait for start pulse (9 ms high, 4.5 ms low)
-    timing = measurePulseDuration(); // High duration
-    if ( timing < 8500 || timing > 9500 ) {
-        return; // Invalid start pulse
-    }
-
-    timing = measurePulseDuration(); // Low duration
-    if ( timing < 4000 || timing > 5000 ) {
-        return; // Invalid gap
-    }
-
-    // Decode 32 bits
-    for ( int i = 0; i < 32; i++ ) {
-        timing = measurePulseDuration(); // High duration (560 μs)
-        if ( timing < 500 || timing > 700 ) {
-            return; // Invalid pulse for bit
+            start_sequence = 0;
         }
 
-        timing = measurePulseDuration(); // Low duration (logical 0 or 1)
-        if ( timing >= 1500 && timing <= 1800 ) {
-            necData = (necData << 1) | 1; // Logical 1
-        } 
-        else if ( timing >= 500 && timing <= 700 ) {
-            necData = (necData << 1);   // Logical 0
-        } 
-        else {
-            return; // Invalid gap
+        if (capturing) {
+            DecodeNECProtocol(signal_duration);
         }
+
+        previous_state = current_state;
+        last_timer_value = current_timer_value;
+    }
+}
+
+// Funzione per decodificare il protocollo NEC
+void DecodeNECProtocol(int signal_duration) {
+    if (bit_count < 32) {
+        if (signal_duration > US_TO_TICKS(1600)) {
+            // "1" logico
+            data = (data << 1) | 1;
+        } else {
+            // "0" logico
+            data = (data << 1);
+        }
+        bit_durations[bit_count] = signal_duration;
+        bit_count++;
     }
 
-    // Validate data (check inverse address and command)
-    u8 address =    ( necData >> 24 ) & 0xFF;
-    u8 invAddress = ( necData >> 16 ) & 0xFF;
-    u8 command =    ( necData >> 8 ) & 0xFF;
-    u8 invCommand = necData & 0xFF;
+    if (capturing && bit_count == 32) {
+        // Sequenza completa
+        PrintSequence(data, bit_durations);
+        DecodeAndPrintNECData(data);
 
-    if ( ( address ^ invAddress ) != 0xFF || ( command ^ invCommand ) != 0xFF ) {
-        return; // Data integrity check failed
+        // Reset delle variabili
+        capturing = 0;
+        bit_count = 0;
+        data = 0;
     }
-
-    *packet = necData; // Store the decoded packet
-}
-*/
-
-u32 measurePulseDuration(void) {
-    u32 startTime, endTime, pulseDuration;
-
-    // Wait for signal edge
-    while ( readGPIOPin() == 0 );
-    startTime = XTmrCtr_GetValue(&timerInstance, 0);
-
-    while ( readGPIOPin() == 1 );
-    endTime = XTmrCtr_GetValue(&timerInstance, 0);
-
-    // Calculate pulse duration
-    pulseDuration = endTime - startTime;
-    return pulseDuration / ( XPAR_AXI_TIMER_0_CLOCK_FREQ_HZ / 1000000 ); // Convert to microseconds
 }
 
-u32 readGPIOPin(void) {
-    // Read the GPIO input pin (bit 0 of GPIO base address)
-    return *((volatile u32 *)gpioIRBaseAddr) & 0x1;
+// Funzione per stampare la sequenza
+void PrintSequence(unsigned long long data, int durations[]) {
+    xil_printf("Bit | Numero | Durata (us)\n");
+    for (int i = 31; i >= 0; i--) {
+        int bit = (data >> i) & 1;
+        xil_printf("%2d  | Bit %2d | %10d\n", bit, 32 - i, durations[31 - i] / (TIMER_CLOCK_FREQ_HZ / 1000000));
+    }
 }
 
+// Funzione per decodificare e stampare i dati NEC
+void DecodeAndPrintNECData(unsigned long long data) {
+    unsigned char address = (data >> 24) & 0xFF;
+    unsigned char address_inv = (data >> 16) & 0xFF;
+    unsigned char command = (data >> 8) & 0xFF;
+    unsigned char command_inv = data & 0xFF;
+
+    xil_printf("Dati Decodificati:\n");
+    xil_printf("Indirizzo: 0x%02X\n", address);
+    xil_printf("Indirizzo Inverso: 0x%02X\n", !address_inv);
+    xil_printf("Comando: 0x%02X\n", command);
+    xil_printf("Comando Inverso: 0x%02X\n", !command_inv);
+
+    if ((address ^ address_inv) == 0xFF && (command ^ command_inv) == 0xFF) {
+        xil_printf("Validazione: OK\n");
+    } else {
+        xil_printf("Validazione: ERRORE\n");
+    }
+}
