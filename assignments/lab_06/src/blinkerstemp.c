@@ -35,7 +35,7 @@ volatile int *buttonsReg =  (int *)XPAR_AXI_BUTTONS_GPIO_BASEADDR;
 volatile int *leds16Reg =   (int *)XPAR_AXI_16LEDS_GPIO_BASEADDR;
 
 // Variabili Globali
-voltatile int isrSignal = 0;
+int isrSignal = 0;
 int timerCounter = 6000000;
 int continueFlag = 0;
 int resetFlag = 1;
