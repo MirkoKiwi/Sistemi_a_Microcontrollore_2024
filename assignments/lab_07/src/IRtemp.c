@@ -3,16 +3,13 @@
 #include "xil_printf.h"
 #include "xparameters.h"
 
-// Definitions
-#define gpioIrBaseAddr XPAR_GPIO_0_BASEADDR // Base address of GPIO
-#define samplingInterval 50                // Sampling interval in microseconds
-#define startHighCountThreshold 180        // ~9 ms / 50 µs
-#define startLowCountThreshold 90          // ~4.5 ms / 50 µs
-#define oneLowCountThreshold 34            // ~1.69 ms / 50 µs
-#define zeroLowCountThreshold 11           // ~560 µs / 50 µs
+// Definizioni
+#define gpioIrBaseAddr XPAR_GPIO_0_BASEADDR // Base address GPIO
+#define samplingInterval 50                // Intervallo di campionamento (50 µs)
+#define maxSamples 64                      // Numero massimo di campioni
 
-// Function Prototypes
-void decodeNecProtocol(uint32_t *packet);
+// Funzioni
+void decodeNecProtocol(void);
 uint32_t readGpioPin(void);
 void delayMicroseconds(uint32_t microseconds);
 
@@ -28,114 +25,66 @@ uint32_t readGpioPin(void) {
     return *((volatile uint32_t *)gpioIrBaseAddr) & 0x1;
 }
 
-// NEC Protocol Decoder
-void decodeNecProtocol(uint32_t *packet) {
-    uint32_t highCount = 0, lowCount = 0;
-    uint32_t necData = 0;
-    int bitIndex = 0;
-    uint32_t state = readGpioPin();
+// Decodifica NEC
+void decodeNecProtocol(void) {
+    uint32_t times[maxSamples];
+    uint32_t currentState, previousState = readGpioPin();
+    int timeIndex = 0;
+    uint32_t startTime = 0, currentTime;
 
-    xil_printf("Waiting for Start Pulse...\n");
-
-    // Wait for the start pulse
-    while (state == 0) {
-        state = readGpioPin(); // Wait for high signal
-        delayMicroseconds(samplingInterval);
-    }
-
-    // Count the high duration
-    while (state == 1) {
-        highCount++;
-        state = readGpioPin();
-        delayMicroseconds(samplingInterval);
-    }
-
-    // Validate the high duration of the start pulse
-    if (highCount < startHighCountThreshold) {
-        xil_printf("Invalid Start Pulse High\n");
-        return;
-    }
-
-    // Count the low duration
-    while (state == 0) {
-        lowCount++;
-        state = readGpioPin();
-        delayMicroseconds(samplingInterval);
-    }
-
-    // Validate the low duration of the start pulse
-    if (lowCount < startLowCountThreshold) {
-        xil_printf("Invalid Start Pulse Low\n");
-        return;
-    }
-
-    xil_printf("Decoding 32-bit Packet...\n");
-
-    // Decode 32 bits
-    while (bitIndex < 32) {
-        // Measure high duration
-        highCount = 0;
-        while (state == 1) {
-            highCount++;
-            state = readGpioPin();
-            delayMicroseconds(samplingInterval);
+    // Acquisizione segnali
+    xil_printf("Acquisizione segnali in corso...\n");
+    while (timeIndex < maxSamples) {
+        currentState = readGpioPin();
+        if (currentState != previousState) {
+            currentTime = startTime;
+            times[timeIndex++] = currentTime;
+            previousState = currentState;
         }
+        delayMicroseconds(samplingInterval);
+        startTime += samplingInterval;
+    }
 
-        // High duration validation (should be ~560 µs)
-        if (highCount < 10 || highCount > 14) { // Adjust thresholds as needed
-            xil_printf("Invalid High Pulse for Bit %d\n", bitIndex);
-            return;
-        }
-
-        // Measure low duration
-        lowCount = 0;
-        while (state == 0) {
-            lowCount++;
-            state = readGpioPin();
-            delayMicroseconds(samplingInterval);
-        }
-
-        // Decode bit based on low duration
-        if (lowCount >= oneLowCountThreshold) {
-            necData = (necData << 1) | 1; // Logical 1
-            xil_printf("Bit %d: 1\n", bitIndex);
-        } else if (lowCount >= zeroLowCountThreshold) {
-            necData = (necData << 1); // Logical 0
-            xil_printf("Bit %d: 0\n", bitIndex);
+    // Decodifica dati
+    xil_printf("Decodifica pacchetto...\n");
+    uint32_t necPacket = 0;
+    for (int i = 0; i < 32; i++) {
+        uint32_t pulseDuration = times[2 * i + 1] - times[2 * i]; // Differenza di tempi
+        if (pulseDuration > 1000) { // Threshold per distinguere 1 e 0
+            necPacket = (necPacket << 1) | 1; // Bit 1
         } else {
-            xil_printf("Invalid Low Pulse for Bit %d\n", bitIndex);
-            return;
+            necPacket = (necPacket << 1); // Bit 0
         }
-
-        bitIndex++;
     }
 
-    xil_printf("Decoded Packet: 0x%08X\n", necData);
+    // Estrazione dell'indirizzo
+    uint8_t invertedAddress = (necPacket >> 8) & 0xFF;
 
-    // Validate data
-    uint8_t address = (necData >> 24) & 0xFF;
-    uint8_t invAddress = (necData >> 16) & 0xFF;
-    uint8_t command = (necData >> 8) & 0xFF;
-    uint8_t invCommand = necData & 0xFF;
-
-    if ((address ^ invAddress) != 0xFF || (command ^ invCommand) != 0xFF) {
-        xil_printf("Data Integrity Check Failed\n");
-        return;
+    // Switch dei comandi
+    xil_printf("Comando ricevuto: ");
+    switch (invertedAddress) {
+        case 0xFE:
+            xil_printf("Comando 1\n");
+            break;
+        case 0xFD:
+            xil_printf("Comando 2\n");
+            break;
+        case 0xFB:
+            xil_printf("Comando 3\n");
+            break;
+        default:
+            xil_printf("Comando sconosciuto\n");
+            break;
     }
-
-    xil_printf("Address: 0x%02X, Command: 0x%02X\n", address, command);
-    *packet = necData;
 }
 
-// Main Function
+// Funzione principale
 int main() {
     init_platform();
 
-    uint32_t necPacket = 0;
-
     while (1) {
-        decodeNecProtocol(&necPacket);
-        delayMicroseconds(50000); // Delay before next decoding
+        decodeNecProtocol();
+        delayMicroseconds(50000); // Attesa prima di una nuova decodifica
     }
 
     cleanup_platform();
