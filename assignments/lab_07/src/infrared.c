@@ -28,6 +28,7 @@ XTmrCtr TimerInstance;
 
 // Prototipi funzioni
 void init_timer();
+void timerEnable();
 void captureRawIR();
 void PrintSequence(unsigned long long data, int durations[]);
 void decodeAndPrintNECData(unsigned long long data);
@@ -60,6 +61,17 @@ void init_timer() {
     XTmrCtr_Start(&TimerInstance, TIMER_COUNTER_0);
 }
 
+void timerEnable(void) {
+    XTmrCtr_Enable(&TimerInstance, TIMER_COUNTER_0);
+}
+
+// TODO: Sostituire address Timer e macro counter 
+void timerReset(XTmrCtr* TimerInstance, int TimerCounter) {
+    XTmrCtr_Stop(&TimerInstance, TimerCounter);
+    XTmrCtr_Reset(&TimerInstance, TimerCounter);
+    XTmrCtr_Start(&TimerInstance, TimerCounter);
+}
+
 
 void captureRawIR() {
     int start = 0;
@@ -70,7 +82,7 @@ void captureRawIR() {
 
         while(!(*AXI_GPIO_IR));
 
-        // timerEnable();
+        timerEnable();
         low = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
 
         while(*AXI_GPIO_IR);
@@ -88,8 +100,8 @@ void captureRawIR() {
     for ( int i = 0; i < 32; i++ ) {
 
         while(!(*AXI_GPIO_IR));
-        // timerEnable();
 
+        timerEnable();
         low = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
 
         while(*AXI_GPIO_IR);
