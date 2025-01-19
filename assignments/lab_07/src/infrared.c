@@ -8,7 +8,7 @@
 // Macro per il timer
 #define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
 #define TmrCtrNumber           0
-#define TIMER_CTRL_RESET	   0x56
+#define TIMER_CTRL_RESET	   0
 #define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
 #define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
 
@@ -26,8 +26,9 @@ void init_timer(int counterValue);
 void timerEnable();
 void timerReset();
 void captureRawIR();
-void PrintSequence(u32 data, u32 durations[]);
-void decodeAndPrintNECData(u32 data);
+void PrintSequence(u32 data[]);
+void decodeAndPrintNECData(u32 data[]);
+u32 convertToDec(u32 data[], u32 size);
 
 
 int main() {
@@ -56,8 +57,6 @@ void init_timer(int counterValue) {
     // Fa partire il timer resettando il bit di LOAD0
     u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
     XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
-
-    timerEnable();
 }
 
 void timerEnable(void) {
@@ -69,7 +68,7 @@ void timerEnable(void) {
 void timerReset() {
     // Disable and reset the timer
     XTmrCtr_Disable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0); 
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0);
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
     u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
@@ -78,6 +77,9 @@ void timerReset() {
 
 
 void captureRawIR() {
+
+	u32 data[32] = {0};
+
     int start = 0;
     u32 high, low;
 
@@ -95,7 +97,6 @@ void captureRawIR() {
         value = high - low;
 
         timerReset();
-
         if ((value > 400000) && (value < 600000)) {
             start = 1;
         }
@@ -111,32 +112,54 @@ void captureRawIR() {
 
         high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
-        data[i] = high - low;
+        int bitValue = ( ( high - low ) > 100000 ) ? 1 : 0;		// Converte in un 1 o uno 0 in base al treshold
+
+        data[i] = bitValue;
 
         timerReset();
     }
+
+    PrintSequence(data);
 }
 
-
 // Funzione per stampare la sequenza
-void PrintSequence(u32 data, u32 durations[]) {
-    xil_printf("Bit | Numero | Durata (us)\n");
-    for (int i = 31; i >= 0; i--) {
-        int bit = (data >> i) & 1;
-        xil_printf("%2d  | Bit %2d | %10d\n", bit, 32 - i, durations[31 - i] / (TIMER_CLOCK_FREQ_HZ / 1000000));
+void PrintSequence(u32 data[]) {
+    xil_printf("Bit | Numero\n");
+    for (int i = 0; i < 32; i++) {
+        xil_printf("%2d  | Bit %2d\n", i + 1, data[i]);
     }
+    decodeAndPrintNECData(data);
 }
 
 // Decodifica e stampa dati NEC
-void decodeAndPrintNECData(u32 data) {
-    unsigned char address = (data >> 24) & 0xFF;
-    unsigned char address_inv = (data >> 16) & 0xFF;
-    unsigned char command = (data >> 8) & 0xFF;
-    unsigned char command_inv = data & 0xFF;
+void decodeAndPrintNECData(u32 data[]) {
+	u32 decData = convertToDec(data, 32);
+
+	// Debug
+	// xil_printf("%02X\n", decData);
+
+	unsigned char address = ( decData ) & 0xFF;
+	unsigned char addressInverse = ( decData >> 8 ) & 0xFF;
+	unsigned char command = ( decData >> 16 ) & 0xFF;
+	unsigned char commandInverse = ( decData >> 24 ) & 0xFF;
+
 
     xil_printf("Dati Decodificati:\n");
     xil_printf("Indirizzo: 0x%02X\n", address);
-    xil_printf("Indirizzo Inverso: 0x%02X\n", !address_inv);
+    xil_printf("Indirizzo Inverso: 0x%02X\n", addressInverse);
     xil_printf("Comando: 0x%02X\n", command);
-    xil_printf("Comando Inverso: 0x%02X\n", !command_inv);
+    xil_printf("Comando Inverso: 0x%02X\n", commandInverse);
+}
+
+// Prende in input un array di 32 bit e lo converte in un valore decimale u32
+u32 convertToDec(u32 data[], u32 size) {
+	u32 result = 0;
+
+	for ( int i = size; i >= 0; i-- ) {
+		result *= 2;
+		result += data[i];
+		xil_printf("Res: %d\nIteration: %d\nN Data: %d\n\n", result, i, data[i]);
+	}
+
+	return result;
 }
