@@ -20,10 +20,10 @@ volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
 // ********************** Variabili Globali ********************** //
 volatile u32 data[32] = {0};
 typedef enum {
-	POWER_ON = 0xA2, FUNC = 0xE2,
-	VOL_UP = 0x62, VOL_DOWN = 0xA8, PREV = 0x22, PAUSE = 0x02, NEXT = 0xC2,
-	ARROW_UP = 0x90, ARROW_DOWN = 0xE0, EQ = 0x98, ST_REPT = 0xB0,
-	ZERO = 0x68, ONE = 0x30, TWO = 0x18, THREE = 0x7A, FOUR = 0x10, FIVE = 0x38, SIX = 0x5A, SEVEN = 0x42, EIGHT = 0x4A, NINE = 0x52
+	POWER_ON = 0x45, FUNC = 0x47,
+	VOL_UP = 0x46, VOL_DOWN = 0x15, PREV = 0x44, PAUSE = 0x40, NEXT = 0x43,
+	ARROW_UP = 0x09, ARROW_DOWN = 0x07, EQ = 0x19, ST_REPT = 0x0D,
+	ZERO = 0x16, ONE = 0x0C, TWO = 0x18, THREE = 0x5E, FOUR = 0x08, FIVE = 0x1C, SIX = 0x5A, SEVEN = 0x42, EIGHT = 0x52, NINE = 0x4A
 } RemoteButtons;
 
 
@@ -164,6 +164,8 @@ void decodeAndPrintNECData(u32 data[]) {
     xil_printf("Indirizzo Inverso: 0x%02X\n", addressInverse);
     xil_printf("Comando: 0x%02X\n", command);
     xil_printf("Comando Inverso: 0x%02X\n", commandInverse);
+
+    printButton(command);
 }
 
 // Prende in input un array di 32 bit e lo converte in un valore decimale u32
@@ -176,4 +178,33 @@ u32 convertToDec(u32 data[], u32 size) {
 	}
 
 	return result;
+}
+
+// Riconoscimento comandi
+void printButton(RemoteButtons command) {
+    switch(command) {
+        case POWER_ON:  xil_printf("POWER_ON\n");   break;
+        case FUNC:      xil_printf("FUNC\n");       break;
+        case VOL_UP:    xil_printf("VOL_UP\n");     break;
+        case VOL_DOWN:  xil_printf("VOL_DOWN\n");   break;
+        case PREV:      xil_printf("PREV\n");       break;
+        case PAUSE:     xil_printf("PAUSE\n");      break;
+        case NEXT:      xil_printf("NEXT\n");       break;
+        case ARROW_UP:  xil_printf("ARROW_UP\n");   break;
+        case ARROW_DOWN:xil_printf("ARROW_DOWN\n"); break;
+        case EQ:        xil_printf("EQ\n");         break;
+        case ST_REPT:   xil_printf("ST_REPT\n");    break;
+        case ZERO:      xil_printf("ZERO\n");       break;
+        case ONE:       xil_printf("ONE\n");        break;
+        case TWO:       xil_printf("TWO\n");        break;
+        case THREE:     xil_printf("THREE\n");      break;
+        case FOUR:      xil_printf("FOUR\n");       break;
+        case FIVE:      xil_printf("FIVE\n");       break;
+        case SIX:       xil_printf("SIX\n");        break;
+        case SEVEN:     xil_printf("SEVEN\n");      break;
+        case EIGHT:     xil_printf("EIGHT\n");      break;
+        case NINE:      xil_printf("NINE\n");       break;
+        
+        default:        xil_printf("UNKNOWN\n");    break;
+    }
 }
