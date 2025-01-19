@@ -22,10 +22,6 @@ volatile int currentIndex = 0;  // Current position buffer
 volatile int captureFlag = 0;
 
 
-
-// Timer
-XTmrCtr XPAR_AXI_TIMER_0_BASEADDR;
-
 // Prototipi funzioni
 void init_timer(int counterValue);
 void timerEnable();
@@ -53,13 +49,17 @@ int main() {
 
 
 void init_timer(int counterValue) {
-    // Inizializza il timer
-    XTmr_Initialize(XPAR_AXI_TIMER_0_BASEADDR, TIMER_DEVICE_ID);
+    // Configurazione Timer
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, TIMER_CTRL_RESET); 	// Configura Status Register (SR)
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, counterValue);  				// Load register impostato su counterValue
+    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);       				// Inizializza il timer
 
-    // Configura il timer senza auto-reload
-    XTmrCtr_SetOptions(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0);
-    XTmrCtr_Reset(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    XTmrCtr_Start(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    // Fa partire il timer resettando il bit di LOAD0
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
+
+    // Attiva il timer
+    timerEnable();
 }
 
 void timerEnable(void) {
@@ -84,12 +84,12 @@ void captureRawIR() {
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        low = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
 
         timerReset();
-        high = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        high = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         value = high - low;
 
@@ -103,11 +103,11 @@ void captureRawIR() {
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        low = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
 
-        high = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        high = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         data[i] = high - low;
 
