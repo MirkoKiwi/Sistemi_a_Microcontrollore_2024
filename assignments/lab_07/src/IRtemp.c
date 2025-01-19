@@ -18,7 +18,7 @@ volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
 
 
 // ********************** Variabili Globali ********************** //
-volatile u32 data[32] = {0}
+volatile u32 data[32] = {0};
 typedef enum {
 	POWER_ON = 0x45, FUNC = 0x47,
 	VOL_UP = 0x46, VOL_DOWN = 0x15, PREV = 0x44, PAUSE = 0x40, NEXT = 0x43,
