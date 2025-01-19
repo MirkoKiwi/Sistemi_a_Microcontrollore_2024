@@ -5,11 +5,11 @@
 #include "xtmrctr.h"
 
 
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 32
 
 // Macro per il timer
 #define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
-#define TIMER_COUNTER_0        0
+#define TmrCtrNumber           0
 #define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
 #define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
 
@@ -24,11 +24,12 @@ volatile int captureFlag = 0;
 
 
 // Timer
-XTmrCtr TimerInstance;
+XTmrCtr XPAR_AXI_TIMER_0_BASEADDR;
 
 // Prototipi funzioni
-void init_timer();
+void init_timer(int counterValue);
 void timerEnable();
+void timerReset(int counterValue);
 void captureRawIR();
 void PrintSequence(unsigned long long data, int durations[]);
 void decodeAndPrintNECData(unsigned long long data);
@@ -51,25 +52,25 @@ int main() {
 
 
 
-void init_timer() {
+void init_timer(int counterValue) {
     // Inizializza il timer
-    XTmr_Initialize(&TimerInstance, TIMER_DEVICE_ID);
+    XTmr_Initialize(XPAR_AXI_TIMER_0_BASEADDR, TIMER_DEVICE_ID);
 
     // Configura il timer senza auto-reload
-    XTmrCtr_SetOptions(&TimerInstance, TIMER_COUNTER_0, 0);
-    XTmrCtr_Reset(&TimerInstance, TIMER_COUNTER_0);
-    XTmrCtr_Start(&TimerInstance, TIMER_COUNTER_0);
+    XTmrCtr_SetOptions(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0);
+    XTmrCtr_Reset(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_Start(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
 void timerEnable(void) {
-    XTmrCtr_Enable(&TimerInstance, TIMER_COUNTER_0);
+    XTmrCtr_Enable(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
 // TODO: Sostituire address Timer e macro counter 
-void timerReset(XTmrCtr* TimerInstance, int TimerCounter) {
-    XTmrCtr_Stop(&TimerInstance, TimerCounter);
-    XTmrCtr_Reset(&TimerInstance, TimerCounter);
-    XTmrCtr_Start(&TimerInstance, TimerCounter);
+void timerReset(int counterValue) {
+    XTmrCtr_Stop(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_Reset(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_Start(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
 
@@ -83,12 +84,12 @@ void captureRawIR() {
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
+        low = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
 
-        // timerReset();
-        high = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
+        timerReset();
+        high = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         value = high - low;
 
@@ -102,15 +103,15 @@ void captureRawIR() {
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
+        low = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
 
-        high = XTmrCtr_GetValue(&TimerInstance, TIMER_COUNTER_0);
+        high = XTmrCtr_GetValue(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         data[i] = high - low;
 
-        // timerReset();
+        timerReset();
     }
 }
 
