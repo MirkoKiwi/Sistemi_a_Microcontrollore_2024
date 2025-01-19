@@ -173,7 +173,6 @@ u32 convertToDec(u32 data[], u32 size) {
 	for ( int i = size; i >= 0; i-- ) {
 		result *= 2;
 		result += data[i];
-		xil_printf("Res: %d\nIteration: %d\nN Data: %d\n\n", result, i, data[i]);
 	}
 
 	return result;
