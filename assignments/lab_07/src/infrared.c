@@ -10,6 +10,7 @@
 // Macro per il timer
 #define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
 #define TmrCtrNumber           0
+#define TIMER_CTRL_RESET	   0x56
 #define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
 #define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
 
@@ -25,10 +26,10 @@ volatile int captureFlag = 0;
 // Prototipi funzioni
 void init_timer(int counterValue);
 void timerEnable();
-void timerReset(int counterValue);
+void timerReset();
 void captureRawIR();
-void PrintSequence(unsigned long long data, int durations[]);
-void decodeAndPrintNECData(unsigned long long data);
+void PrintSequence(u32 data, u32 durations[]);
+void decodeAndPrintNECData(u32 data);
 
 
 int main() {
@@ -36,7 +37,7 @@ int main() {
 
     xil_printf("Ciao PIAGGIO\n");
 
-    init_timer();
+    init_timer(TmrCtrNumber);
 
     while(1) {
         captureRawIR();
@@ -63,61 +64,62 @@ void init_timer(int counterValue) {
 }
 
 void timerEnable(void) {
-    XTmrCtr_Enable(&XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
-// TODO: Sostituire address Timer e macro counter 
-void timerReset(int counterValue) {
-    XTmrCtr_Stop(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    XTmrCtr_Reset(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    XTmrCtr_Start(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+void timerReset() {
+    XTmrCtr_Disable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0);
+    XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
 
 
 void captureRawIR() {
     int start = 0;
+    u32 high, low;
 
     while(!start) {
-        u32 high, low;
         u32 value;
 
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        low = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
-
-        timerReset();
-        high = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         value = high - low;
+
+        timerReset();
 
         if ( ( value > 400000 ) && ( value < 600000 ) )
             start = 1;
     }
-
 
     for ( int i = 0; i < 32; i++ ) {
 
         while(!(*AXI_GPIO_IR));
 
         timerEnable();
-        low = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        low = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         while(*AXI_GPIO_IR);
 
-        high = XTmrCtr_GetValue(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+        high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         data[i] = high - low;
 
         timerReset();
+
+        PrintSequence(high - low, data);
+        decodeAndPrintNECData(high - low);
     }
 }
 
 
 // Funzione per stampare la sequenza
-void PrintSequence(unsigned long long data, int durations[]) {
+void PrintSequence(u32 data, u32 durations[]) {
     xil_printf("Bit | Numero | Durata (us)\n");
     for (int i = 31; i >= 0; i--) {
         int bit = (data >> i) & 1;
@@ -126,7 +128,7 @@ void PrintSequence(unsigned long long data, int durations[]) {
 }
 
 // Decodifica e stampa dati NEC
-void decodeAndPrintNECData(unsigned long long data) {
+void decodeAndPrintNECData(u32 data) {
     unsigned char address = (data >> 24) & 0xFF;
     unsigned char address_inv = (data >> 16) & 0xFF;
     unsigned char command = (data >> 8) & 0xFF;
