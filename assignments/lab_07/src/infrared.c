@@ -5,30 +5,42 @@
 #include "xtmrctr.h"
 
 
-// Macro per il timer
+// Timer Macro
 #define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
 #define TmrCtrNumber           0
 #define TIMER_CTRL_RESET	   0
 #define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
-#define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
+
 
 // Dichiarazione del GPIO come puntatore volatile
 volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
 
-// Variabili Globali
-volatile u32 data[32] = {0};
-volatile int currentIndex = 0;  // Current position buffer
-volatile int captureFlag = 0;
 
 
-// Prototipi funzioni
+// ********************** Variabili Globali ********************** //
+volatile u32 data[32] = {0}
+typedef enum {
+	POWER_ON = 0xA2, FUNC = 0xE2,
+	VOL_UP = 0x62, VOL_DOWN = 0xA8, PREV = 0x22, PAUSE = 0x02, NEXT = 0xC2,
+	ARROW_UP = 0x90, ARROW_DOWN = 0xE0, EQ = 0x98, ST_REPT = 0xB0,
+	ZERO = 0x68, ONE = 0x30, TWO = 0x18, THREE = 0x7A, FOUR = 0x10, FIVE = 0x38, SIX = 0x5A, SEVEN = 0x42, EIGHT = 0x4A, NINE = 0x52
+} RemoteButtons;
+
+
+// ********************** Prototipi funzioni ********************** //
+// Funzioni Timer
 void init_timer(int counterValue);
 void timerEnable();
 void timerReset();
+
+// Funzioni cattura e gestione input IR
 void captureRawIR();
-void PrintSequence(u32 data[]);
+void printData(u32 data[]);
 void decodeAndPrintNECData(u32 data[]);
+
 u32 convertToDec(u32 data[], u32 size);
+
+
 
 
 int main() {
@@ -71,6 +83,7 @@ void timerReset() {
     XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0);
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
+    // Fa partire il timer resettando il bit di LOAD0
     u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
     XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
 }
@@ -97,12 +110,12 @@ void captureRawIR() {
         value = high - low;
 
         timerReset();
-        if ((value > 400000) && (value < 600000)) {
+        if ( (value > 400000) && (value < 600000) ) {
             start = 1;
         }
     }
 
-    for (int i = 0; i < 32; i++) {
+    for ( int i = 0; i < 32; i++ ) {
         while (!(*AXI_GPIO_IR));
 
         timerEnable();
@@ -118,12 +131,14 @@ void captureRawIR() {
 
         timerReset();
     }
+    decodeAndPrintNECData(data);
 
-    PrintSequence(data);
+    // DEBUG
+    // printData(data);
 }
 
-// Funzione per stampare la sequenza
-void PrintSequence(u32 data[]) {
+// Funzione per stampare la sequenza (DEBUG)
+void printData(u32 data[]) {
     xil_printf("Bit | Numero\n");
     for (int i = 0; i < 32; i++) {
         xil_printf("%2d  | Bit %2d\n", i + 1, data[i]);
