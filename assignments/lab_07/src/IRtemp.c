@@ -165,7 +165,7 @@ void decodeAndPrintNECData(u32 data[]) {
     xil_printf("Comando: 0x%02X\n", command);
     xil_printf("Comando Inverso: 0x%02X\n", commandInverse);
 
-    xil_printf("Comando individuato: %d\n\n", RemoteButtons[command]);
+    printButton(command);
 }
 
 // Prende in input un array di 32 bit e lo converte in un valore decimale u32
@@ -179,3 +179,33 @@ u32 convertToDec(u32 data[], u32 size) {
 
 	return result;
 }
+
+// Riconoscimento comandi
+void printButton(RemoteButtons command) {
+    switch(command) {
+        case POWER_ON:  xil_printf("POWER_ON\n");   break;
+        case FUNC:      xil_printf("FUNC\n");       break;
+        case VOL_UP:    xil_printf("VOL_UP\n");     break;
+        case VOL_DOWN:  xil_printf("VOL_DOWN\n");   break;
+        case PREV:      xil_printf("PREV\n");       break;
+        case PAUSE:     xil_printf("PAUSE\n");      break;
+        case NEXT:      xil_printf("NEXT\n");       break;
+        case ARROW_UP:  xil_printf("ARROW_UP\n");   break;
+        case ARROW_DOWN:xil_printf("ARROW_DOWN\n"); break;
+        case EQ:        xil_printf("EQ\n");         break;
+        case ST_REPT:   xil_printf("ST_REPT\n");    break;
+        case ZERO:      xil_printf("ZERO\n");       break;
+        case ONE:       xil_printf("ONE\n");        break;
+        case TWO:       xil_printf("TWO\n");        break;
+        case THREE:     xil_printf("THREE\n");      break;
+        case FOUR:      xil_printf("FOUR\n");       break;
+        case FIVE:      xil_printf("FIVE\n");       break;
+        case SIX:       xil_printf("SIX\n");        break;
+        case SEVEN:     xil_printf("SEVEN\n");      break;
+        case EIGHT:     xil_printf("EIGHT\n");      break;
+        case NINE:      xil_printf("NINE\n");       break;
+        
+        default:        xil_printf("UNKNOWN\n");    break;
+    }
+}
+
