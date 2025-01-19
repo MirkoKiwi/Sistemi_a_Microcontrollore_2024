@@ -1,3 +1,52 @@
+#include <stdio.h>
+#include "platform.h"
+#include "xil_printf.h"
+#include "xparameters.h"
+#include "xtmrctr.h"
+
+
+// Macro per il timer
+#define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
+#define TmrCtrNumber           0
+#define TIMER_CTRL_RESET	   0x56
+#define TIMER_CLOCK_FREQ_HZ    100000000 // Frequenza del timer (100 MHz)
+#define US_TO_TICKS(us)        ((us) * (TIMER_CLOCK_FREQ_HZ / 1000000)) // Conversione da microsecondi a tick
+
+// Dichiarazione del GPIO come puntatore volatile
+volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
+
+// Variabili Globali
+volatile u32 data[32] = {0};
+volatile int currentIndex = 0;  // Current position buffer
+volatile int captureFlag = 0;
+
+
+// Prototipi funzioni
+void init_timer(int counterValue);
+void timerEnable();
+void timerReset();
+void captureRawIR();
+void PrintSequence(u32 data, u32 durations[]);
+void decodeAndPrintNECData(u32 data);
+
+
+int main() {
+    init_platform();
+
+    xil_printf("Ciao PIAGGIO\n");
+
+    init_timer(TmrCtrNumber);
+
+    while(1) {
+        captureRawIR();
+    }
+
+    cleanup_platform();
+    return 0;
+}
+
+
+
 void init_timer(int counterValue) {
     // Reset the timer and load the initial value
     XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, TIMER_CTRL_RESET);
@@ -22,6 +71,7 @@ void timerReset() {
     XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0xFFFFFFFF); // Set max value
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 }
+
 
 void captureRawIR() {
     int start = 0;
@@ -64,6 +114,7 @@ void captureRawIR() {
         timerReset();
     }
 }
+
 
 // Funzione per stampare la sequenza
 void PrintSequence(u32 data, u32 durations[]) {
