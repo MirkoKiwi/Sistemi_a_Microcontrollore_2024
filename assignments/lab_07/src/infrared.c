@@ -53,23 +53,27 @@ void init_timer(int counterValue) {
     XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, counterValue);
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
-    // Enable the timer
-    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    // Fa partire il timer resettando il bit di LOAD0
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
+
+    timerEnable();
 }
 
 void timerEnable(void) {
-    // Ensure the timer is running
-    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    if (!(controlStatus & XTC_CSR_ENABLE_TMR_MASK)) {
-        XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    }
+    // Enable the timer
+    XTmrCtr_Enable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+
 }
 
 void timerReset() {
     // Disable and reset the timer
     XTmrCtr_Disable(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
-    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0xFFFFFFFF); // Set max value
+    XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, 0); 
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+
+    u32 controlStatus = XTmrCtr_GetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber, controlStatus & ~XTC_CSR_LOAD_MASK);
 }
 
 
@@ -89,7 +93,6 @@ void captureRawIR() {
         high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         value = high - low;
-        xil_printf("High: %d | Low: %d | Val: %d\n", high, low, value);
 
         timerReset();
 
@@ -98,7 +101,6 @@ void captureRawIR() {
         }
     }
 
-    xil_printf("Start of capture\n");
     for (int i = 0; i < 32; i++) {
         while (!(*AXI_GPIO_IR));
 
