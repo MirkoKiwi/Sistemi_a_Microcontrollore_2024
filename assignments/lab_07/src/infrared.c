@@ -5,8 +5,6 @@
 #include "xtmrctr.h"
 
 
-#define BUFFER_SIZE 32
-
 // Macro per il timer
 #define TIMER_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
 #define TmrCtrNumber           0
@@ -18,7 +16,7 @@
 volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
 
 // Variabili Globali
-volatile u32 data[BUFFER_SIZE] = {0};
+volatile u32 data[32] = {0};
 volatile int currentIndex = 0;  // Current position buffer
 volatile int captureFlag = 0;
 
@@ -90,13 +88,14 @@ void captureRawIR() {
         high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
         value = high - low;
+        xil_printf("High: %d | Low: %d | Val: %d\n", high, low, value);
 
         timerReset();
 
         if ( ( value > 400000 ) && ( value < 600000 ) )
             start = 1;
     }
-
+    xil_printf("QUa\n");
     for ( int i = 0; i < 32; i++ ) {
 
         while(!(*AXI_GPIO_IR));
@@ -112,8 +111,8 @@ void captureRawIR() {
 
         timerReset();
 
-        PrintSequence(high - low, data);
-        decodeAndPrintNECData(high - low);
+        //PrintSequence(high - low, data);
+        //decodeAndPrintNECData(high - low);
     }
 }
 
