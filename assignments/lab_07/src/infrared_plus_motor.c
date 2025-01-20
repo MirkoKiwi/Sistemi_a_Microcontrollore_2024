@@ -6,8 +6,9 @@
 
 
 // Timer Macro
-#define TmrCtrNumber           0
-#define TIMER_CTRL_RESET	   0
+#define TmrCtrNumber            0
+#define TIMER_CTRL_RESET	    0
+#define TIMER_CTRL_RESET_CCW    0x56
 
 
 // Dichiarazione del GPIO come puntatore volatile
@@ -24,6 +25,11 @@ typedef enum {
 	ZERO = 0x16, ONE = 0x0C, TWO = 0x18, THREE = 0x5E, FOUR = 0x08, FIVE = 0x1C, SIX = 0x5A, SEVEN = 0x42, EIGHT = 0x52, NINE = 0x4A
 } RemoteButtons;
 
+unsigned char address;
+unsigned char addressInverse;
+unsigned char command;
+unsigned char commandInverse;
+
 
 // ********************** Prototipi funzioni ********************** //
 // Funzioni Timer
@@ -36,15 +42,17 @@ void timer1Enable();
 void timer1Reset();
 
 // Funzioni cattura e gestione input IR
-void captureRawIR();
+unsigned char decode_NEC();
 void printData(u32 data[]);
 void decodeAndPrintNECData(u32 data[]);
 
 u32 convertToDec(u32 data[], u32 size);
 
+
+
 // ********************** Motor Driver ********************** //
-#define ledGPaddr	0x40000000	// channel 0
-#define RGBaddr 	0x40000008	// channel 1
+volatile int *ledGPaddr = (volatile int *)0x40000000	// channel 0
+volatile int *RGBaddr = (volatile int *)0x40000008	    // channel 1
 
 void my_ISR(void) __attribute__ ((interrupt_handler));
 
@@ -54,6 +62,8 @@ int pwmB = 0;	// Decrease
 int dirA = 0;	// 1 if CW
 int dirB = 0;	// 1 if CCW
 
+void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr);
+void set_dir(int dirA, int dirB, volatile int *ledGPaddr);
 void clear_interrupt();
 
 
@@ -76,7 +86,7 @@ int main() {
 
 
     while(1) {
-        captureRawIR();
+        decode_NEC();
     }
 
     cleanup_platform();
@@ -115,7 +125,7 @@ void timer0Reset() {
 
 void init_timer1(int counterValue) {
     // Reset the timer and load the initial value
-    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_1_BASEADDR, TmrCtrNumber, TIMER_CTRL_RESET);
+    XTmrCtr_SetControlStatusReg(XPAR_AXI_TIMER_1_BASEADDR, TmrCtrNumber, TIMER_CTRL_RESET_CCW);
     XTmrCtr_SetLoadReg(XPAR_AXI_TIMER_1_BASEADDR, TmrCtrNumber, counterValue);
     XTmrCtr_LoadTimerCounterReg(XPAR_AXI_TIMER_1_BASEADDR, TmrCtrNumber);
 
@@ -143,7 +153,7 @@ void timer1Reset() {
 
 
 
-void captureRawIR() {
+unsigned char decode_NEC() {
 
 	u32 data[32] = {0};
 
@@ -185,11 +195,24 @@ void captureRawIR() {
 
         timerReset();
     }
-    decodeAndPrintNECData(data);
+    // Decodifica segnale
+    u32 decData = convertToDec(data, 32);
+
+    address = ( decData ) & 0xFF;
+	addressInverse = ( decData >> 8 ) & 0xFF;
+	command = ( decData >> 16 ) & 0xFF;
+	commandInverse = ( decData >> 24 ) & 0xFF;
+
 
     // DEBUG
+    // decodeAndPrintNECData(data);
     // printData(data);
+    printButton(command);
+
+    return command;
 }
+
+
 
 // Funzione per stampare la sequenza (DEBUG)
 void printData(u32 data[]) {
@@ -200,17 +223,17 @@ void printData(u32 data[]) {
     decodeAndPrintNECData(data);
 }
 
-// Decodifica e stampa dati NEC
+// Decodifica e stampa dati NEC (DEBUG)
 void decodeAndPrintNECData(u32 data[]) {
 	u32 decData = convertToDec(data, 32);
 
 	// Debug
 	// xil_printf("%02X\n", decData);
 
-	unsigned char address = ( decData ) & 0xFF;
-	unsigned char addressInverse = ( decData >> 8 ) & 0xFF;
-	unsigned char command = ( decData >> 16 ) & 0xFF;
-	unsigned char commandInverse = ( decData >> 24 ) & 0xFF;
+	address = ( decData ) & 0xFF;
+	addressInverse = ( decData >> 8 ) & 0xFF;
+	command = ( decData >> 16 ) & 0xFF;
+	commandInverse = ( decData >> 24 ) & 0xFF;
 
 
     xil_printf("Dati Decodificati:\n");
@@ -221,6 +244,7 @@ void decodeAndPrintNECData(u32 data[]) {
 
     printButton(command);
 }
+
 
 // Prende in input un array di 32 bit e lo converte in un valore decimale u32
 u32 convertToDec(u32 data[], u32 size) {
@@ -273,12 +297,61 @@ void my_ISR(void) {
 }
 
 
-void manage_pwm() {
-	if ( cnt < 256 ) {
+void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr) {
+    if ( cnt == VOL_UP ) pwmA += 10;
+    if ( cnt == VOL_DOWN ) pwmB -= 10;
 
-	}
+    pwmA = ( pwmA > 255 ) ? 255 : ( ( pwmA < 0 ) ? 0 : pwmA );
+    pwmB = ( pwmB > 255 ) ? 255 : ( ( pwmB < 0 ) ? 0 : pwmB );
+
+    *RGBaddr = (pwmA << 16) | pwmB;
+}
+
+
+void manage_command(int *pwmA, int *pwmB, int *dirA, int *dirB) {
+    switch (command) 
+    {
+        case VOL_UP:
+            *pwmA += 10;
+            if ( *pwmA > 255 ) 
+                *pwmA = 255; // Cap at max PWM value
+            break;
+
+        case VOL_DOWN:
+            *pwmB -= 10;
+            if ( *pwmB < 0 ) 
+                *pwmB = 0; // Cap at min PWM value
+            break;
+
+        case ARROW_UP:  // Intensita' varia in maniera crescente
+            *dirA = 1; 
+            *dirB = 0; 
+            break;
+
+        case ARROW_DOWN: // Intensita' varia in maniera decrescente
+            *dirA = 0;   
+            *dirB = 1; 
+            break;
+
+        default:
+            break;
+    }
+}
+
+
+// CONTROL IF IT WORKS AND FIX EVENTUALLY!!!
+void set_dir(int dirA, int dirB, volatile int *ledGPaddr)
+{
+    // Assuming the GPIO address maps the direction bits
+    int gpio_val = 0;
+
+    if (dirA == 1) gpio_val |= 0x01; // Set bit 0 for dirA
+    if (dirB == 1) gpio_val |= 0x02; // Set bit 1 for dirB
+
+    *ledGPaddr = gpio_val; // Write the value to the GPIO address
 }
 
 void clear_interrupt() {
-	int peripheral = (int *)
+	volatile int *peripheral = (volatile int *)
+    *peripheral = 1;
 }
