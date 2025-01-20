@@ -47,12 +47,13 @@ void printData(u32 data[]);
 void decodeAndPrintNECData(u32 data[]);
 
 u32 convertToDec(u32 data[], u32 size);
+void printButton(RemoteButtons command);
 
 
 
 // ********************** Motor Driver ********************** //
-volatile int *ledGPaddr = (volatile int *)0x40000000	// channel 0
-volatile int *RGBaddr = (volatile int *)0x40000008	    // channel 1
+volatile int *ledGPaddr = (volatile int *)0x40000000;	// channel 0
+volatile int *RGBaddr = (volatile int *)0x40000008;	    // channel 1
 
 void my_ISR(void) __attribute__ ((interrupt_handler));
 
@@ -173,7 +174,7 @@ unsigned char decode_NEC() {
 
         value = high - low;
 
-        timerReset();
+        timer0Reset();
         if ( (value > 400000) && (value < 600000) ) {
             start = 1;
         }
@@ -193,7 +194,7 @@ unsigned char decode_NEC() {
 
         data[i] = bitValue;
 
-        timerReset();
+        timer0Reset();
     }
     // Decodifica segnale
     u32 decData = convertToDec(data, 32);
@@ -291,7 +292,7 @@ void printButton(RemoteButtons command) {
 // ********************** Motor Driver ********************** //
 
 void my_ISR(void) {
-	manage_pwm(cnt, pwmA, pwmB, RGBAddr);	// 0x40000008 - channel 1
+	manage_pwm(cnt, pwmA, pwmB, RGBaddr);	// 0x40000008 - channel 1
 	set_dir(dirA, dirB, ledGPaddr);			// 0x40000000 - channel 0
 	clear_interrupt();
 }
@@ -309,28 +310,28 @@ void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr) {
 
 
 void manage_command(int *pwmA, int *pwmB, int *dirA, int *dirB) {
-    switch (command) 
+    switch (command)
     {
         case VOL_UP:
             *pwmA += 10;
-            if ( *pwmA > 255 ) 
+            if ( *pwmA > 255 )
                 *pwmA = 255; // Cap at max PWM value
             break;
 
         case VOL_DOWN:
             *pwmB -= 10;
-            if ( *pwmB < 0 ) 
+            if ( *pwmB < 0 )
                 *pwmB = 0; // Cap at min PWM value
             break;
 
         case ARROW_UP:  // Intensita' varia in maniera crescente
-            *dirA = 1; 
-            *dirB = 0; 
+            *dirA = 1;
+            *dirB = 0;
             break;
 
         case ARROW_DOWN: // Intensita' varia in maniera decrescente
-            *dirA = 0;   
-            *dirB = 1; 
+            *dirA = 0;
+            *dirB = 1;
             break;
 
         default:
@@ -352,6 +353,6 @@ void set_dir(int dirA, int dirB, volatile int *ledGPaddr)
 }
 
 void clear_interrupt() {
-	volatile int *peripheral = (volatile int *)
-    *peripheral = 1;
+	//volatile int *peripheral = (volatile int *)
+    //*peripheral = 1;
 }
