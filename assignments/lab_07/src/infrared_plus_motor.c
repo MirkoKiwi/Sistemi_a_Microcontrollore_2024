@@ -68,7 +68,7 @@ u32 convertToDec(u32 data[], u32 size);
 
 
 // ********************** Motor Driver ********************** //
-#define INTC_BASE_ADDR XPAR_AXI_INTC_0_BASEADDR// Replace with the actual base address
+#define INTC_BASE_ADDR XPAR_MICROBLAZE_0_AXI_INTC_BASEADDR  // ???
 
 // Interrupt Controller Registers
 #define IAR 0x0C 	// Interrupt Acknowledge Register
@@ -199,7 +199,7 @@ unsigned char decode_NEC() {
 
         value = high - low;
 
-        timerReset();
+        timer0Reset();
         if ( (value > 400000) && (value < 600000) ) {
             start = 1;
         }
@@ -219,7 +219,7 @@ unsigned char decode_NEC() {
 
         data[i] = bitValue;
 
-        timerReset();
+        timer0Reset();
     }
     // Decodifica segnale
     u32 decData = convertToDec(data, 32);
@@ -331,7 +331,7 @@ void enable_interrupts(void) {
 }
 
 void clear_interrupt() {
-	volatile int *peripheral = (volatile int *)
+	volatile int *peripheral = (volatile int *)INTC_BASE_ADDR; // ?????
     *peripheral = 1;
 }
 
@@ -351,25 +351,25 @@ void manage_command(int pwmA, int pwmB, int dirA, int dirB) {
     switch (command) 
     {
         case VOL_UP:
-            *pwmA += 10;
-            if ( *pwmA > 255 ) 
-                *pwmA = 255; // Cap at max PWM value
+            pwmA += 10;
+            if ( pwmA > 255 ) 
+                pwmA = 255; // Cap at max PWM value
             break;
 
         case VOL_DOWN:
-            *pwmB -= 10;
-            if ( *pwmB < 0 ) 
-                *pwmB = 0; // Cap at min PWM value
+            pwmB -= 10;
+            if ( pwmB < 0 ) 
+                pwmB = 0; // Cap at min PWM value
             break;
 
         case ARROW_UP:  // Intensita' varia in maniera crescente
-            *dirA = 1; 
-            *dirB = 0; 
+            dirA = 1; 
+            dirB = 0; 
             break;
 
         case ARROW_DOWN: // Intensita' varia in maniera decrescent
-            *dirA = 0;   
-            *dirB = 1; 
+            dirA = 0;   
+            dirB = 1; 
             break;
 
         default:
