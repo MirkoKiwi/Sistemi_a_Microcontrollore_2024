@@ -47,11 +47,17 @@ void printData(u32 data[]);
 void decodeAndPrintNECData(u32 data[]);
 
 u32 convertToDec(u32 data[], u32 size);
-void printButton(RemoteButtons command);
 
 
 
 // ********************** Motor Driver ********************** //
+#define INTC_BASE_ADDR XPAR_AXI_INTC_0_BASEADDR// Replace with the actual base address
+
+// Interrupt Controller Registers
+#define IAR 0x0C 	// Interrupt Acknowledge Register
+#define IER 0x08 	// Interrupt Enable Register
+#define MER 0x1C	// Master Enable Register
+
 volatile int *ledGPaddr = (volatile int *)0x40000000;	// channel 0
 volatile int *RGBaddr = (volatile int *)0x40000008;	    // channel 1
 
@@ -63,9 +69,11 @@ int pwmB = 0;	// Decrease
 int dirA = 0;	// 1 if CW
 int dirB = 0;	// 1 if CCW
 
+void enable_interrupts();
+void clear_interrupt();
+
 void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr);
 void set_dir(int dirA, int dirB, volatile int *ledGPaddr);
-void clear_interrupt();
 
 
 
@@ -77,8 +85,8 @@ int main() {
 
 //    // ********************** Motor Driver ********************** //
 //    enable_interrupts();
-//    init_timer0();			enable_timer_channel_0();
-//    init_timer1();			enable_timer_channel_1();
+//    init_timer0();			// enable_timer_channel_0();
+//    init_timer1();			// enable_timer_channel_1();
 //
 //	  while(1) {
 //    		command = decode_NEC(timer);
@@ -174,7 +182,7 @@ unsigned char decode_NEC() {
 
         value = high - low;
 
-        timer0Reset();
+        timerReset();
         if ( (value > 400000) && (value < 600000) ) {
             start = 1;
         }
@@ -194,7 +202,7 @@ unsigned char decode_NEC() {
 
         data[i] = bitValue;
 
-        timer0Reset();
+        timerReset();
     }
     // Decodifica segnale
     u32 decData = convertToDec(data, 32);
@@ -298,6 +306,20 @@ void my_ISR(void) {
 }
 
 
+void enable_interrupts(void) {
+    microblaze_enable_interrupts();
+
+    // Abilita interrupt
+    *(int *)(INTC_BASE_ADDR + MER) = 0b11;  // Abilita MER
+    *(int *)(INTC_BASE_ADDR + IER) = 0b110; // Abilita IER    
+}
+
+void clear_interrupt() {
+	volatile int *peripheral = (volatile int *)
+    *peripheral = 1;
+}
+
+
 void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr) {
     if ( cnt == VOL_UP ) pwmA += 10;
     if ( cnt == VOL_DOWN ) pwmB -= 10;
@@ -305,33 +327,33 @@ void manage_pwm(int cnt, int pwmA, int pwmB, volatile int *RGBaddr) {
     pwmA = ( pwmA > 255 ) ? 255 : ( ( pwmA < 0 ) ? 0 : pwmA );
     pwmB = ( pwmB > 255 ) ? 255 : ( ( pwmB < 0 ) ? 0 : pwmB );
 
-    *RGBaddr = (pwmA << 16) | pwmB;
+    *RGBaddr = ( pwmA << 16 ) | pwmB;
 }
 
 
-void manage_command(int *pwmA, int *pwmB, int *dirA, int *dirB) {
-    switch (command)
+void manage_command(int pwmA, int pwmB, int dirA, int dirB) {
+    switch (command) 
     {
         case VOL_UP:
             *pwmA += 10;
-            if ( *pwmA > 255 )
+            if ( *pwmA > 255 ) 
                 *pwmA = 255; // Cap at max PWM value
             break;
 
         case VOL_DOWN:
             *pwmB -= 10;
-            if ( *pwmB < 0 )
+            if ( *pwmB < 0 ) 
                 *pwmB = 0; // Cap at min PWM value
             break;
 
         case ARROW_UP:  // Intensita' varia in maniera crescente
-            *dirA = 1;
-            *dirB = 0;
+            *dirA = 1; 
+            *dirB = 0; 
             break;
 
-        case ARROW_DOWN: // Intensita' varia in maniera decrescente
-            *dirA = 0;
-            *dirB = 1;
+        case ARROW_DOWN: // Intensita' varia in maniera decrescent
+            *dirA = 0;   
+            *dirB = 1; 
             break;
 
         default:
@@ -340,19 +362,15 @@ void manage_command(int *pwmA, int *pwmB, int *dirA, int *dirB) {
 }
 
 
-// CONTROL IF IT WORKS AND FIX EVENTUALLY!!!
+// TO FIX !!!
 void set_dir(int dirA, int dirB, volatile int *ledGPaddr)
 {
     // Assuming the GPIO address maps the direction bits
-    int gpio_val = 0;
+    int GPIOTEMP = 0;
 
-    if (dirA == 1) gpio_val |= 0x01; // Set bit 0 for dirA
-    if (dirB == 1) gpio_val |= 0x02; // Set bit 1 for dirB
+    if ( dirA == 1 ) GPIOTEMP |= 0b01; // Set bit 0 for dirA
+    if ( dirB == 1 ) GPIOTEMP |= 0b10; // Set bit 1 for dirB
 
-    *ledGPaddr = gpio_val; // Write the value to the GPIO address
+    *ledGPaddr = GPIOTEMP;  // Write the value to the GPIO address
 }
 
-void clear_interrupt() {
-	//volatile int *peripheral = (volatile int *)
-    //*peripheral = 1;
-}
