@@ -215,7 +215,7 @@ unsigned char decode_NEC() {
 
         high = XTmrCtr_GetTimerCounterReg(XPAR_AXI_TIMER_0_BASEADDR, TmrCtrNumber);
 
-        int bitValue = ( ( high - low ) > 100000 ) ? 1 : 0;		// Converte in un 1 o uno 0 in base al treshold
+        int bitValue = ( ( high - low ) > 160000 ) ? 1 : 0;		// Converte in un 1 o uno 0 in base al treshold
 
         data[i] = bitValue;
 
@@ -224,10 +224,10 @@ unsigned char decode_NEC() {
     // Decodifica segnale
     u32 decData = convertToDec(data, 32);
 
-    address = ( decData ) & 0xFF;
-	addressInverse = ( decData >> 8 ) & 0xFF;
-	command = ( decData >> 16 ) & 0xFF;
-	commandInverse = ( decData >> 24 ) & 0xFF;
+    address = ( decData >> 24 ) & 0xFF;
+	addressInverse = ( decData >> 16 ) & 0xFF;
+	command = ( decData >> 8 ) & 0xFF;
+	commandInverse = ( decData ) & 0xFF;
 
 
     // DEBUG
