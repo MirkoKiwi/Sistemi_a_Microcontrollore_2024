@@ -17,13 +17,30 @@ volatile int *AXI_GPIO_IR = (int *)XPAR_GPIO_IR_BASEADDR;
 
 
 // ********************** Variabili Globali ********************** //
-volatile u32 data[32] = {0};
 typedef enum {
-	POWER_ON = 0x45, FUNC = 0x47,
-	VOL_UP = 0x46, VOL_DOWN = 0x15, PREV = 0x44, PAUSE = 0x40, NEXT = 0x43,
-	ARROW_UP = 0x09, ARROW_DOWN = 0x07, EQ = 0x19, ST_REPT = 0x0D,
-	ZERO = 0x16, ONE = 0x0C, TWO = 0x18, THREE = 0x5E, FOUR = 0x08, FIVE = 0x1C, SIX = 0x5A, SEVEN = 0x42, EIGHT = 0x52, NINE = 0x4A
+    POWER_ON = 0xA2, 
+	FUNC     = 0xE2,
+    VOL_UP   = 0x62, 
+	VOL_DOWN = 0xA8, 
+	PREV     = 0x22, 
+	PAUSE    = 0x02, 
+	NEXT     = 0xC2,
+    ARROW_UP = 0x90, 
+	ARROW_DOWN = 0xE0, 
+	EQ      = 0x98, 
+	ST_REPT = 0xB0,
+    ZERO    = 0x68, 
+	ONE     = 0x30, 
+	TWO     = 0x18, 
+	THREE   = 0x7A, 
+	FOUR    = 0x10, 
+	FIVE    = 0x38, 
+	SIX     = 0x5A, 
+	SEVEN   = 0x42, 
+	EIGHT   = 0x4A, 
+	NINE    = 0x52
 } RemoteButtons;
+
 
 unsigned char address;
 unsigned char addressInverse;
@@ -239,10 +256,10 @@ void decodeAndPrintNECData(u32 data[]) {
 	// Debug
 	// xil_printf("%02X\n", decData);
 
-	address = ( decData ) & 0xFF;
-	addressInverse = ( decData >> 8 ) & 0xFF;
-	command = ( decData >> 16 ) & 0xFF;
-	commandInverse = ( decData >> 24 ) & 0xFF;
+	address = ( decData >> 24 ) & 0xFF;
+	addressInverse = ( decData >> 16 ) & 0xFF;
+	command = ( decData >> 8 ) & 0xFF;
+	commandInverse = ( decData ) & 0xFF;
 
 
     xil_printf("Dati Decodificati:\n");
@@ -259,9 +276,8 @@ void decodeAndPrintNECData(u32 data[]) {
 u32 convertToDec(u32 data[], u32 size) {
 	u32 result = 0;
 
-	for ( int i = size; i >= 0; i-- ) {
-		result *= 2;
-		result += data[i];
+	for ( int i = 0; i < size; i++ ) {
+		result = ( data[i] == 1 ) ? ( result << 1 ) | 1 : ( result << 1 );
 	}
 
 	return result;
