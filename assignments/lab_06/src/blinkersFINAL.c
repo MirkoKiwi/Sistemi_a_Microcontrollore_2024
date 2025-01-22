@@ -50,7 +50,7 @@ typedef enum {
 } blinkersState_t;
 
 // Funzioni Macchina a Stati
-int fsmDebounce(int buttons);
+int FSM_debounce(int buttons);
 void fsmBlinkers(int buttonsNb);
 
 // Funzioni Timer
@@ -76,7 +76,7 @@ int main() {
     init_timer(timerCounter);
 
     while (1) {
-        buttonsNb = fsmDebounce(*buttonsReg);
+        buttonsNb = FSM_debounce(*buttonsReg);
         fsmBlinkers(buttonsNb);
     }
 
@@ -87,7 +87,7 @@ int main() {
 
 
 // Funzioni Macchina a Stati
-int fsmDebounce(int buttons) {
+int FSM_debounce(int buttons) {
     static int debouncedButtons;
     static debounceState_t currentState = IDLE;
 
