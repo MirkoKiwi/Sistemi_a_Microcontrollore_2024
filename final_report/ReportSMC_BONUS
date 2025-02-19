@@ -1,0 +1,10 @@
+Il motore e' stato immaginato come un sistema che gesisce un braccio meccanico con due ruote indipendenti. I comandi dirA e dirB (attivati dai pulsanti ARROW_UP e ARROW_DOWN) determinano la direzione del movimento, 
+il valore del PWM (pwmA e pwmB) controlla la velocità delle ruote ed è modulato dai pulsanti VOL_UP e VOL_DOWN.
+
+  Se dirA = 1 e dirB = 0, con pwmA < pwmB e STBY = 1, si verifica uno Short Brake.
+  Se dirA = 1 e dirB = 0, con pwmA > pwmB e STBY = 1, si verifica una rotazione in senso orario CW.
+  
+  Il sistema utilizza il TIMER 1 per generare un interrupt ogni volta che il PWM scende a 0. Questo interrupt permette di aggiornare lo stato del motore.
+
+  La luminosità dei LED RGB ( Verde e Blu) della scheda indica l'intensita' di pwmA e pwmB.
+  L'attivazione di dirA e dirB è rappresentata da due LED singoli (LD1 e LD2), separati dall'RGB.

@@ -1,0 +1,9 @@
+Inizialmente la funzione decode_NEC() aspetta che arrivi un segnale alto dal ricevitore IR (invertito), ergo aspetta che arrivi l'impulso alto di 4.5 ms del protocollo NEC per poi abilitare il timer ed acquisire i valori. 
+Viene poi misurato il range acquisendo le tempistiche in variabili, rispettivamente high e low, e catturandone poi la differenza (in "value"). Quest'operazione misura la durata del ciclo. Se la durata è compresa tra 400.000 e 600.00 vuol dire che stiamo ricevendo un segnale NEC e possiamo campionare.
+Con un ciclo for decodifico i 32 bit successivi. Se la durata del segnale è maggiore di 160.000 vuol dire che stiamo catturando un '1', catturiamo uno '0' altrimenti. 
+Tutti i 32 bit sono raccolti in un array, passati ad una funzione che converte l'array in un valore u32 e viene poi estrappolato il comando come definito nel protocollo NEC.
+Dopodiche' ho passato in rassegna tutti i segnali del telecomandoo, raccogliendoli in un enum e successivamente creando una funzione ( printbutton() ) che stampa su terminale il segnale decodificato ed identificato.
+
+
+Ho poi creato la parte di progetto bonus dedicata al Motor Driver. Ho attivato innanzitutto le funzioni relative agli interrupt per la routine, ho implementato una funzione per il PWM in base al comando ricevuto dal telecomando, ed ho implementato una funzione per cambiare direzione, che al momento cambia soltanto l'accensione dei led sulla scheda.
+Mi rendo conto che la PWM e la gestione dell'interrupt del timer1 hanno una logica implementata errata ed incompleta. Ho tuttavia cercato di separare il piu' possibile la parte relativa al lab 7 dalla parte riguardante il bonus Motor IR.
